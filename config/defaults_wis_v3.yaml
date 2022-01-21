@@ -1,0 +1,130 @@
+
+defaults_wis_v3:
+  # Job
+  n_steps: 1_000_000
+  n_env_steps: 10_000_000
+  offline_data_dir:
+  offline_prefill_dir:
+  offline_test_dir:
+  offline_eval_dir:
+  log_interval: 100
+  logbatch_interval: 1000
+  # logbatch_interval: 2000
+  save_interval: 500
+  eval_interval: 2000
+  data_workers: 4
+  allow_mid_reset: True
+  enable_profiler: False
+  verbose: False
+  precision: 32
+
+  # Features
+  image_key: image
+  image_size: 64
+  image_channels: 3
+  image_categorical: False
+  action_dim: 0
+  clip_rewards:
+  
+  # Probe features
+  map_key:
+  map_size: 0
+  map_channels: 0
+  map_categorical: True
+  goals_size: 0
+  
+  # Training
+  buffer_size: 10_000_000
+  buffer_size_offline: 0
+  reset_interval: 200
+  iwae_samples: 1
+  kl_balance: 0.8
+  kl_weight: 1.0
+  image_weight: 1.0
+  vecobs_weight: 1.0
+  reward_weight: 1.0
+  terminal_weight: 1.0
+  adam_lr: 3.0e-4
+  adam_lr_actor: 1.0e-4
+  adam_lr_critic: 1.0e-4
+  adam_eps: 1.0e-5
+  adam_ac_eps: 1.0e-5
+  keep_state: True
+  device: "cuda:0"
+  grad_clip: 200
+  grad_clip_ac: 200
+  image_decoder_min_prob: 0
+  slow_value_target: True
+  slow_target_update: 1
+  slow_target_fraction: 0.02
+
+
+  
+
+
+  # Eval
+  test_batches: 61  # For unbiased test needs to be enough to cover full episodes
+  test_batch_size: 10  # Smaller for faster test
+  test_save_size: 1
+  eval_batches: 61  # Big enough to reach episode end (xN). +1 to log last episode
+  eval_samples: 1  # no multi-sampling to have reproducible paper results
+  eval_batch_size: 32  # Limited by GPU mem
+  eval_save_size: 1  # How many envs to save in npz
+
+  # Model
+  model: dreamer
+  deter_dim: 2048
+  stoch_dim: 32
+  stoch_discrete: 32
+  hidden_dim: 1000
+  gru_layers: 1
+  gru_type: gru
+  layer_norm: True
+  vecobs_size: 0
+  image_encoder: cnn
+  cnn_depth: 48
+  image_encoder_layers: 0
+  image_decoder: cnn
+  image_decoder_layers: 0
+  reward_input: False
+  reward_decoder_layers: 4
+  reward_decoder_categorical:
+  terminal_decoder_layers: 4
+  tidy: False
+
+  # v3
+  dyn_cell: 'gru_layer_norm'
+  dyn_hidden: 512
+  dyn_deter: 512
+  dyn_stoch: 32
+  dyn_discrete: 32
+  dyn_input_layers: 1
+  dyn_output_layers: 1
+  dyn_rec_depth: 1
+  dyn_shared: False
+  dyn_mean_act: 'none'
+  dyn_std_act: 'sigmoid2'
+  dyn_min_std: 0.1
+  dyn_temp_post: True
+  grad_heads: ['decoder', 'reward', 'terminal']
+  units: 512
+  reward_layers: 2
+  terminal_layers: 2
+  value_layers: 2
+  actor_layers: 2
+  act: 'SiLU'
+  norm: 'LayerNorm'
+  encoder:
+    {mlp_keys: '$^', cnn_keys: 'image', act: 'SiLU', norm: 'LayerNorm', cnn_depth: 32, kernel_size: 4, minres: 4, mlp_layers: 2, mlp_units: 512, symlog_inputs: True}
+  decoder:
+    {mlp_keys: '$^', cnn_keys: 'image', act: 'SiLU', norm: 'LayerNorm', cnn_depth: 32, kernel_size: 4, minres: 4, mlp_layers: 2, mlp_units: 512, cnn_sigmoid: False, image_dist: mse, vector_dist: symlog_mse}
+  value_head: 'symlog_disc'
+  reward_head: 'symlog_disc'
+  dyn_scale: '0.5'
+  rep_scale: '0.1'
+  kl_free: '1.0'
+  terminal_scale: 1.0
+  reward_scale: 1.0
+  weight_decay: 0.0
+  unimix_ratio: 0.01
+  action_unimix_ratio: 0.01
