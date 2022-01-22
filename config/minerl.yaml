@@ -5,4 +5,12 @@ minerl:
   generator_workers: 2
   gamma: 0.995
   adam_lr: 1.0e-4
-  reset_
+  reset_interval: 50
+  clip_rewards: log1p
+  vecobs_weight: 10.0
+  reward_weight: 10.0
+  stoch_dim: 96
+  kl_weight: 0.3
+  entropy: 0.010
+  imag_horizon: 5
+ 
