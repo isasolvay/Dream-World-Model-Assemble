@@ -128,3 +128,133 @@ defaults_wis_v3:
   weight_decay: 0.0
   unimix_ratio: 0.01
   action_unimix_ratio: 0.01
+  initial: 'learned'
+  
+  # Probe
+  probe_model: none
+  map_decoder: dense
+  map_hidden_layers: 4
+  map_hidden_dim: 1024
+
+  # Actor Critic
+  discount: 0.995
+  lambda_gae: 0.95
+  actor_entropy: 0.003
+  # target_interval: 100
+  imag_horizon: 15
+  actor_grad: reinforce
+  actor_dist: onehot
+
+
+  # Auxiliary Actor critic
+  aux_critic: False
+  aux_critic_weight: 1.0
+  gamma_aux: 0.99
+  lambda_gae_aux: 0.95
+  target_interval_aux: 1000
+
+  # Generator
+  generator_workers: 8        # train+eval generators
+  generator_workers_train: 0  # train-only generators
+  generator_workers_eval: 0   # eval-only generators
+  generator_prefill_steps: 50_000
+  generator_prefill_policy: random
+  limit_step_ratio: 0
+  env_id:
+  env_id_eval:
+  env_action_repeat: 1
+  env_time_limit: 0
+  env_no_terminal: False
+
+  #Environment
+  size: [64, 64]
+  time_limit: 1000
+  grayscale: False
+  eval_noise: 0.0
+
+  # envs: 1
+  # action_repeat: 2
+   # task: 'dmc_walker_walk'
+   # prefill: 2500
+  
+  
+
+minigrid:
+  env_id: MiniGrid-MazeS11N-v0
+  # Features
+  image_key: image
+  image_size: 7
+  image_channels: 4
+  image_categorical: True
+  map_key: map
+  map_size: 11
+  map_channels: 4
+  map_categorical: True
+  action_dim: 7
+  reward_input: True
+  # Model
+  image_encoder: dense
+  image_encoder_layers: 3
+  image_decoder: dense
+  image_decoder_layers: 2
+  probe_model: map
+  imag_horizon: 1
+
+miniworld:
+  # Env
+  env_id: MiniWorld-ScavengerHuntSmall-v0
+  env_no_terminal: True
+  map_size: 9
+  map_channels: 14
+  action_dim: 3
+  # Features
+  image_key: image
+  image_size: 64
+  image_channels: 3
+  image_categorical: False
+  map_key: map
+  map_categorical: True
+  reward_input: True
+  # Model
+  probe_model: goals
+  cnn_depth: 32
+  data_workers: 6
+
+miniworld_offline:
+  # Env
+  env_id: MiniWorld-ScavengerHuntSmall-v0
+  env_no_terminal: True
+  map_size: 9
+  map_channels: 14
+  action_dim: 3
+  # Features
+  image_key: image
+  image_size: 64
+  image_channels: 3
+  image_categorical: False
+  map_key: map
+  map_categorical: True
+  reward_input: True
+  # Model
+  probe_model: goals
+  cnn_depth: 32
+  data_workers: 6
+  # Offline
+  allow_mid_reset: False
+  reward_decoder_layers: 1  # faster
+  terminal_decoder_layers: 1  # faster
+  imag_horizon: 1  # faster
+
+atari:
+  n_env_steps: 200_000_000
+  # Env
+  env_id: Atari-Pong
+  action_dim: 18
+  env_action_repeat: 4
+  env_time_limit: 27_000  # =108_000/action_repeat = 30 minutes of game play.
+  generator_workers: 2
+  clip_rewards: tanh
+
+  # train_ratio: 1024
+  # video_pred_log: true
+  eval_episode_num: 100
