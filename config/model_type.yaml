@@ -12,4 +12,11 @@ dreamer_v3:
   # Training_v3
   batch_size: 16
   batch_length: 64
-  adam_l
+  adam_lr: 1.0e-4
+  adam_lr_actor: 3.0e-5
+  adam_lr_critic: 3.0e-5
+  adam_eps: 1.0e-8
+  # train_ratio: 512
+  # pretrain: 100
+  grad_clip: 1000
+  adam_
