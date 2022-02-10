@@ -1,0 +1,6 @@
+dreamer_v2:
+  wm_type: v2 
+  #Training:
+  batch_length: 64
+  batch_size: 16
+  # amp: False  # AMP no longer helps o

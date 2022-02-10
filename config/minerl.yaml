@@ -19,4 +19,4 @@ minerl:
   log_interval: 300
   logbatch_interval: 2000
   save_interval: 1000
-  eval
+  eval_interval: 2000
