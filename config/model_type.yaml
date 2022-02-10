@@ -3,4 +3,13 @@ dreamer_v2:
   #Training:
   batch_length: 64
   batch_size: 16
-  # amp: False  # AMP no longer helps o
+  # amp: False  # AMP no longer helps on A100
+  probe_gradients: False  # for baselines
+  
+
+dreamer_v3:
+  wm_type: v3
+  # Training_v3
+  batch_size: 16
+  batch_length: 64
+  adam_l
