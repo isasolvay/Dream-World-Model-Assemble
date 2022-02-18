@@ -19,4 +19,9 @@ dreamer_v3:
   # train_ratio: 512
   # pretrain: 100
   grad_clip: 1000
-  adam_
+  adam_ac_eps: 1.0e-5
+  value_grad_clip: 100
+  actor_grad_clip: 100
+  probe_gradients: False
+  # encoder: {mlp_keys: '$^', cnn_keys: 'image'}
+  # decoder: {mlp_keys: 
