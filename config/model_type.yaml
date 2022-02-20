@@ -24,4 +24,11 @@ dreamer_v3:
   actor_grad_clip: 100
   probe_gradients: False
   # encoder: {mlp_keys: '$^', cnn_keys: 'image'}
-  # decoder: {mlp_keys: 
+  # decoder: {mlp_keys: '$^', cnn_keys: 'image'}
+  # dataset_size: 1000000
+
+  # a2c.
+  discount: 0.997
+  imag_gradient_mix: '0.0'
+  # actor_dist: 'normal'
+  actor
