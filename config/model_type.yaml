@@ -31,4 +31,11 @@ dreamer_v3:
   discount: 0.997
   imag_gradient_mix: '0.0'
   # actor_dist: 'normal'
-  actor
+  actor_entropy: 0.0003
+  actor_state_entropy: 0.0
+  actor_init_std: 1.0
+  actor_min_std: 0.1
+  actor_max_std: 1.0
+  actor_temp: 0.1
+  expl_amount: 0.0
+  eval_s
