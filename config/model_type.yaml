@@ -44,4 +44,10 @@ dreamer_v3:
   value_decay: 0.0
   future_entropy: False
   reward_EMA: True
-  # discount_lambda: 
+  # discount_lambda: 0.95
+  # imag_horizon: 15
+  # imag_gradient: 'dynamics'
+ 
+  # imag_sample: True
+  #现在传过来的feature都没有梯度的
+  # behavior_stop_grad: T
