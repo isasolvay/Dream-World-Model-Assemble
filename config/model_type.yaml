@@ -38,4 +38,10 @@ dreamer_v3:
   actor_max_std: 1.0
   actor_temp: 0.1
   expl_amount: 0.0
-  eval_s
+  eval_state_mean: False
+  collect_dyn_sample: True
+  
+  value_decay: 0.0
+  future_entropy: False
+  reward_EMA: True
+  # discount_lambda: 
