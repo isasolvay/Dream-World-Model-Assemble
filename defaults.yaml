@@ -125,3 +125,111 @@ defaults:
   limit_step_ratio: 0
   env_id:
   env_id_eval:
+  env_action_repeat: 1
+  env_time_limit: 0
+  env_no_terminal: False
+
+minigrid:
+  env_id: MiniGrid-MazeS11N-v0
+  # Features
+  image_key: image
+  image_size: 7
+  image_channels: 4
+  image_categorical: True
+  map_key: map
+  map_size: 11
+  map_channels: 4
+  map_categorical: True
+  action_dim: 7
+  reward_input: True
+  # Model
+  image_encoder: dense
+  image_encoder_layers: 3
+  image_decoder: dense
+  image_decoder_layers: 2
+  probe_model: map
+  imag_horizon: 1
+
+miniworld:
+  # Env
+  env_id: MiniWorld-ScavengerHuntSmall-v0
+  env_no_terminal: True
+  map_size: 9
+  map_channels: 14
+  action_dim: 3
+  # Features
+  image_key: image
+  image_size: 64
+  image_channels: 3
+  image_categorical: False
+  map_key: map
+  map_categorical: True
+  reward_input: True
+  # Model
+  probe_model: goals
+  cnn_depth: 32
+  data_workers: 6
+
+miniworld_offline:
+  # Env
+  env_id: MiniWorld-ScavengerHuntSmall-v0
+  env_no_terminal: True
+  map_size: 9
+  map_channels: 14
+  action_dim: 3
+  # Features
+  image_key: image
+  image_size: 64
+  image_channels: 3
+  image_categorical: False
+  map_key: map
+  map_categorical: True
+  reward_input: True
+  # Model
+  probe_model: goals
+  cnn_depth: 32
+  data_workers: 6
+  # Offline
+  allow_mid_reset: False
+  reward_decoder_layers: 1  # faster
+  terminal_decoder_layers: 1  # faster
+  imag_horizon: 1  # faster
+
+atari:
+  n_env_steps: 200_000_000
+  # Env
+  env_id: Atari-Pong
+  action_dim: 18
+  env_action_repeat: 4
+  env_time_limit: 27_000  # =108_000/action_repeat = 30 minutes of game play.
+  generator_workers: 1
+  clip_rewards: tanh
+  # Model
+  deter_dim: 1024
+  kl_weight: 0.1
+  gamma: 0.99
+  entropy: 0.001
+
+dmc:
+  env_id: DMC-quadruped_run
+  action_dim: 12
+  env_time_limit: 500  # =1000/action_repeat
+  env_action_repeat: 2
+  generator_workers: 1
+  generator_prefill_steps: 5000
+  entropy: 1.0e-4
+  actor_grad: dynamics
+  actor_dist: tanh_normal
+  clip_rewards: tanh
+
+dmlab:
+  env_id: DmLab-rooms_watermaze
+  action_dim: 15
+  env_action_repeat: 4
+  env_no_terminal: True
+  kl_weight: 3.0
+
+dmmemory:
+  env_id: DMM-spot_diff_passive_train
+  action_dim: 9
+  kl_weight: 3.0
