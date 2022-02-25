@@ -14,3 +14,8 @@ python3 dreamer.py --configs dmc_vision --task dmc_walker_walk --logdir ./logdir
 Monitor results:
 ```
 tensorboard --logdir ./logdir
+```
+
+## Benchmarks
+So far, the following benchmarks can be used for testing.
+| Environment        | Observation | Action | Budget | Description 
