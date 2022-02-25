@@ -1,0 +1,127 @@
+
+defaults:
+  # Job
+  n_steps: 1_000_000
+  n_env_steps: 10_000_000
+  offline_data_dir:
+  offline_prefill_dir:
+  offline_test_dir:
+  offline_eval_dir:
+  log_interval: 100
+  # logbatch_interval: 1000
+  logbatch_interval: 2000
+  save_interval: 500
+  eval_interval: 2000
+  data_workers: 4
+  allow_mid_reset: True
+  enable_profiler: False
+  verbose: False
+
+  # Features
+  image_key: image
+  image_size: 64
+  image_channels: 3
+  image_categorical: False
+  action_dim: 0
+  clip_rewards:
+  
+  # Probe features
+  map_key:
+  map_size: 0
+  map_channels: 0
+  map_categorical: True
+  goals_size: 0
+  
+  # Training
+  buffer_size: 10_000_000
+  buffer_size_offline: 0
+  reset_interval: 200
+  iwae_samples: 1
+  kl_balance: 0.8
+  kl_weight: 1.0
+  image_weight: 1.0
+  vecobs_weight: 1.0
+  reward_weight: 1.0
+  terminal_weight: 1.0
+  adam_lr: 3.0e-4
+  adam_lr_actor: 1.0e-4
+  adam_lr_critic: 1.0e-4
+  adam_eps: 1.0e-5
+  keep_state: True
+  batch_length: 48
+  batch_size: 32
+  device: "cuda:1"
+  grad_clip: 200
+  grad_clip_ac: 200
+  image_decoder_min_prob: 0
+  amp: False  # AMP no longer helps on A100
+  probe_gradients: False  # for baselines
+
+  ## new para for v3
+  dyn_scale: '0.5'
+  rep_scale: '0.1'
+  kl_free: '1.0'
+
+  # Eval
+  test_batches: 61  # For unbiased test needs to be enough to cover full episodes
+  test_batch_size: 10  # Smaller for faster test
+  test_save_size: 1
+  eval_batches: 61  # Big enough to reach episode end (xN). +1 to log last episode
+  eval_samples: 1  # no multi-sampling to have reproducible paper results
+  eval_batch_size: 32  # Limited by GPU mem
+  eval_save_size: 1  # How many envs to save in npz
+
+  # Model
+  model: dreamer
+  wm_type: v2
+  deter_dim: 2048
+  stoch_dim: 32
+  stoch_discrete: 32
+  hidden_dim: 1000
+  gru_layers: 1
+  gru_type: gru
+  layer_norm: True
+  vecobs_size: 0
+  image_encoder: cnn
+  cnn_depth: 48
+  image_encoder_layers: 0
+  image_decoder: cnn
+  image_decoder_layers: 0
+  reward_input: False
+  reward_decoder_layers: 4
+  reward_decoder_categorical:
+  terminal_decoder_layers: 4
+  tidy: False
+  
+  
+  # Probe
+  probe_model: none
+  map_decoder: dense
+  map_hidden_layers: 4
+  map_hidden_dim: 1024
+
+  # Actor Critic
+  gamma: 0.995
+  lambda_gae: 0.95
+  entropy: 0.003
+  target_interval: 100
+  imag_horizon: 15
+  actor_grad: reinforce
+  actor_dist: onehot
+
+  # Auxiliary Actor critic
+  aux_critic: False
+  aux_critic_weight: 1.0
+  gamma_aux: 0.99
+  lambda_gae_aux: 0.95
+  target_interval_aux: 1000
+
+  # Generator
+  generator_workers: 8        # train+eval generators
+  generator_workers_train: 0  # train-only generators
+  generator_workers_eval: 0   # eval-only generators
+  generator_prefill_steps: 50_000
+  generator_prefill_policy: random
+  limit_step_ratio: 0
+  env_id:
+  env_id_eval:

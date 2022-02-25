@@ -50,4 +50,4 @@ dreamer_v3:
  
   # imag_sample: True
   #现在传过来的feature都没有梯度的
-  # behavior_stop_grad: T
+  # behavior_stop_grad: True
