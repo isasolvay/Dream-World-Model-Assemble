@@ -9,4 +9,8 @@ pip install -r requirements.txt
 ```
 Run training on DMC Vision:
 ```
-python3 dreamer.py 
+python3 dreamer.py --configs dmc_vision --task dmc_walker_walk --logdir ./logdir/dmc_walker_walk
+```
+Monitor results:
+```
+tensorboard --logdir ./logdir
