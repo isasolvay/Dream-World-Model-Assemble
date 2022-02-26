@@ -18,4 +18,6 @@ tensorboard --logdir ./logdir
 
 ## Benchmarks
 So far, the following benchmarks can be used for testing.
-| Environment        | Observation | Action | Budget | Description 
+| Environment        | Observation | Action | Budget | Description |
+|-------------------|---|---|---|-----------------------|
+| [DMC Proprio](https://github.com/deepmind/dm_control) | State | Continuous | 500K | DeepMind
