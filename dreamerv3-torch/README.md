@@ -25,4 +25,8 @@ So far, the following benchmarks can be used for testing.
 | [Atari 100k](https://github.com/openai/atari-py) | Image | Discrete |400K| 26 Atari games. |
 | [Crafter](https://github.com/danijar/crafter) | Image | Discrete |1M| Survival environment to evaluates diverse agent abilities.|
 | [Minecraft](https://github.com/minerllabs/minerl) | Image and State |Discrete |100M| Vast 3D open world.|
-| [Memory Maze](https://github.com/jurgisp/memory-ma
+| [Memory Maze](https://github.com/jurgisp/memory-maze) | Image |Discrete |100M| 3D mazes to evaluate RL agents' long-term memory.|
+
+## Results
+#### DMC Proprio
+![dmcproprio](htt
