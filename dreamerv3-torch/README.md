@@ -31,4 +31,6 @@ So far, the following benchmarks can be used for testing.
 #### DMC Proprio
 ![dmcproprio](https://github.com/NM512/dreamerv3-torch/assets/70328564/7f6e47a5-3235-4bc4-bef9-15ff96782d5e)
 #### DMC Vision
-![dmcvision](https://github.com/NM512
+![dmcvision](https://github.com/NM512/dreamerv3-torch/assets/70328564/b710d217-2428-4fa0-8471-55e15ec5aa43)
+#### Atari 100k
+![atari100k](https://github.com/NM512/dreamerv3-torch/assets/70
