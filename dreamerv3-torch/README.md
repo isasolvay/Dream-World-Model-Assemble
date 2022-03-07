@@ -33,4 +33,8 @@ So far, the following benchmarks can be used for testing.
 #### DMC Vision
 ![dmcvision](https://github.com/NM512/dreamerv3-torch/assets/70328564/b710d217-2428-4fa0-8471-55e15ec5aa43)
 #### Atari 100k
-![atari100k](https://github.com/NM512/dreamerv3-torch/assets/70
+![atari100k](https://github.com/NM512/dreamerv3-torch/assets/70328564/0da6d899-d91d-44b4-a8c4-d5b37413aa11)
+
+## Acknowledgments
+This code is heavily inspired by the following works:
+- danijar's Dreamer-
