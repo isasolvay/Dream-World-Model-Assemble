@@ -37,4 +37,5 @@ So far, the following benchmarks can be used for testing.
 
 ## Acknowledgments
 This code is heavily inspired by the following works:
-- danijar's Dreamer-
+- danijar's Dreamer-v3 jax implementation: https://github.com/danijar/dreamerv3
+- danijar's Dreamer-v2 tensorflow implementation: https://
