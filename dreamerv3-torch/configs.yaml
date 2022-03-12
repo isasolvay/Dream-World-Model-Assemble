@@ -5,4 +5,11 @@ defaults:
   evaldir: null
   offline_traindir: ''
   offline_evaldir: ''
-  see
+  seed: 0
+  steps: 1e6
+  eval_every: 1e4
+  eval_episode_num: 10
+  log_every: 1e4
+  reset_every: 0
+  device: 'cuda:0'
+  co
