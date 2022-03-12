@@ -1,0 +1,8 @@
+defaults:
+
+  logdir: null
+  traindir: null
+  evaldir: null
+  offline_traindir: ''
+  offline_evaldir: ''
+  see
