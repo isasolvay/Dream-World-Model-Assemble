@@ -30,4 +30,10 @@ defaults:
   reward_EMA: True
 
   # Model
-  dy
+  dyn_cell: 'gru_layer_norm'
+  dyn_hidden: 512
+  dyn_deter: 512
+  dyn_stoch: 32
+  dyn_discrete: 32
+  dyn_input_layers: 1
+  dyn_outp
