@@ -43,4 +43,12 @@ defaults:
   dyn_std_act: 'sigmoid2'
   dyn_min_std: 0.1
   dyn_temp_post: True
-  g
+  grad_heads: ['decoder', 'reward', 'cont']
+  units: 512
+  reward_layers: 2
+  cont_layers: 2
+  value_layers: 2
+  actor_layers: 2
+  act: 'SiLU'
+  norm: 'LayerNorm'
+  
