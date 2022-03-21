@@ -51,4 +51,5 @@ defaults:
   actor_layers: 2
   act: 'SiLU'
   norm: 'LayerNorm'
-  
+  encoder:
+    {mlp_keys: '$^', cnn_keys: 'image', act: 'SiLU', norm: 'LayerNorm', cnn_depth: 32, kernel_size: 4, minres: 4,
