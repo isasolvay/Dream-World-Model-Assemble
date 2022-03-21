@@ -36,4 +36,11 @@ defaults:
   dyn_stoch: 32
   dyn_discrete: 32
   dyn_input_layers: 1
-  dyn_outp
+  dyn_output_layers: 1
+  dyn_rec_depth: 1
+  dyn_shared: False
+  dyn_mean_act: 'none'
+  dyn_std_act: 'sigmoid2'
+  dyn_min_std: 0.1
+  dyn_temp_post: True
+  g
