@@ -61,4 +61,12 @@ defaults:
   rep_scale: '0.1'
   kl_free: '1.0'
   cont_scale: 1.0
-  reward_
+  reward_scale: 1.0
+  weight_decay: 0.0
+  unimix_ratio: 0.01
+  action_unimix_ratio: 0.01
+  initial: 'learned'
+
+  # Training
+  batch_size: 16
+  batch_len
