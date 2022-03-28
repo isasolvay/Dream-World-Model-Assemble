@@ -82,4 +82,12 @@ defaults:
   actor_grad_clip: 100
   dataset_size: 1000000
   slow_value_target: True
-  slow_target_
+  slow_target_update: 1
+  slow_target_fraction: 0.02
+  opt: 'adam'
+
+  # Behavior.
+  discount: 0.997
+  discount_lambda: 0.95
+  imag_horizon: 15
+  imag_grad
