@@ -77,4 +77,9 @@ defaults:
   grad_clip: 1000
   value_lr: 3e-5
   actor_lr: 3e-5
-  ac_opt
+  ac_opt_eps: 1e-5
+  value_grad_clip: 100
+  actor_grad_clip: 100
+  dataset_size: 1000000
+  slow_value_target: True
+  slow_target_
