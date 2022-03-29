@@ -90,4 +90,10 @@ defaults:
   discount: 0.997
   discount_lambda: 0.95
   imag_horizon: 15
-  imag_grad
+  imag_gradient: 'dynamics'
+  imag_gradient_mix: '0.0'
+  imag_sample: True
+  actor_dist: 'normal'
+  actor_entropy: '3e-4'
+  actor_state_entropy: 0.0
+  actor_init_
