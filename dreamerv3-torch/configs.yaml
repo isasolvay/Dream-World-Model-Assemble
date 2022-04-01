@@ -96,4 +96,11 @@ defaults:
   actor_dist: 'normal'
   actor_entropy: '3e-4'
   actor_state_entropy: 0.0
-  actor_init_
+  actor_init_std: 1.0
+  actor_min_std: 0.1
+  actor_max_std: 1.0
+  actor_temp: 0.1
+  expl_amount: 0.0
+  eval_state_mean: False
+  collect_dyn_sample: True
+  beh
