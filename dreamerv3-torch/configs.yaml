@@ -103,4 +103,11 @@ defaults:
   expl_amount: 0.0
   eval_state_mean: False
   collect_dyn_sample: True
-  beh
+  behavior_stop_grad: True
+  value_decay: 0.0
+  future_entropy: False
+
+  # Exploration
+  expl_behavior: 'greedy'
+  expl_until: 0
+  expl_extr_s
