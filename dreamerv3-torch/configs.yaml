@@ -153,4 +153,14 @@ crafter:
   value_layers: 5
   actor_layers: 5
   encoder: {mlp_keys: '$^', cnn_keys: 'image', cnn_depth: 96, mlp_layers: 5, mlp_units: 1024}
-  decoder: {mlp_keys: '$^', cnn_keys: 'image', cnn_depth: 96, mlp_layers: 5, mlp_units: 10
+  decoder: {mlp_keys: '$^', cnn_keys: 'image', cnn_depth: 96, mlp_layers: 5, mlp_units: 1024}
+  actor_dist: 'onehot'
+  imag_gradient: 'reinforce'
+
+atari100k:
+  steps: 4e5
+  envs: 1
+  action_repeat: 4
+  train_ratio: 1024
+  video_pred_log: true
+ 
