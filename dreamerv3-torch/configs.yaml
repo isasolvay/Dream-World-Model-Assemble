@@ -163,4 +163,11 @@ atari100k:
   action_repeat: 4
   train_ratio: 1024
   video_pred_log: true
- 
+  eval_episode_num: 100
+  actor_dist: 'onehot'
+  imag_gradient: 'reinforce'
+  stickey: False
+  lives: unused
+  noops: 30
+  resize: opencv
+  a
