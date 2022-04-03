@@ -152,4 +152,5 @@ crafter:
   cont_layers: 5
   value_layers: 5
   actor_layers: 5
-  encoder: {mlp_keys: '$^', cnn_k
+  encoder: {mlp_keys: '$^', cnn_keys: 'image', cnn_depth: 96, mlp_layers: 5, mlp_units: 1024}
+  decoder: {mlp_keys: '$^', cnn_keys: 'image', cnn_depth: 96, mlp_layers: 5, mlp_units: 10
