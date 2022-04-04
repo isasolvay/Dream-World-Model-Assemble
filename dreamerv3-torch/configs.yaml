@@ -187,4 +187,5 @@ minecraft:
   cont_layers: 5
   value_layers: 5
   actor_layers: 5
-  encoder: {mlp
+  encoder: {mlp_keys: 'inventory|inventory_max|equipped|health|hunger|breath|reward', cnn_keys: 'image', cnn_depth: 96, mlp_layers: 5, mlp_units: 1024}
+  decoder: {mlp_keys: 'invent
