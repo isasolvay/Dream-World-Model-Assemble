@@ -199,4 +199,11 @@ debug:
   pretrain: 1
   prefill: 1
   batch_size: 10
-  batch_lengt
+  batch_length: 20
+
+MemoryMaze:
+  steps: 1e8
+  action_repeat: 2
+  actor_dist: 'onehot'
+  imag_gradient: 'reinforce'
+  task: 'MemoryMaze
