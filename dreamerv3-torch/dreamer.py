@@ -139,3 +139,138 @@ class Dreamer(nn.Module):
             action = torch.one_hot(
                 torch.argmax(action, dim=-1), self._config.num_actions
             )
+        action = self._exploration(action, training)
+        policy_output = {"action": action, "logprob": logprob}
+        state = (latent, action)
+        return policy_output, state
+
+    def _exploration(self, action, training):
+        amount = self._config.expl_amount if training else self._config.eval_noise
+        if amount == 0:
+            return action
+        if "onehot" in self._config.actor_dist:
+            probs = amount / self._config.num_actions + (1 - amount) * action
+            return tools.OneHotDist(probs=probs).sample()
+        else:
+            return torch.clip(torchd.normal.Normal(action, amount).sample(), -1, 1)
+
+    def _train(self, data):
+        metrics = {}
+        post, context, mets = self._wm._train(data)
+        metrics.update(mets)
+        start = post
+        reward = lambda f, s, a: self._wm.heads["reward"](
+            self._wm.dynamics.get_feat(s)
+        ).mode()
+        metrics.update(self._task_behavior._train(start, reward)[-1])
+        if self._config.expl_behavior != "greedy":
+            mets = self._expl_behavior.train(start, context, data)[-1]
+            metrics.update({"expl_" + key: value for key, value in mets.items()})
+        for name, value in metrics.items():
+            if not name in self._metrics.keys():
+                self._metrics[name] = [value]
+            else:
+                self._metrics[name].append(value)
+
+
+def count_steps(folder):
+    return sum(int(str(n).split("-")[-1][:-4]) - 1 for n in folder.glob("*.npz"))
+
+
+def make_dataset(episodes, config):
+    generator = tools.sample_episodes(episodes, config.batch_length)
+    dataset = tools.from_generator(generator, config.batch_size)
+    return dataset
+
+
+def make_env(config, mode):
+    suite, task = config.task.split("_", 1)
+    if suite == "dmc":
+        import envs.dmc as dmc
+
+        env = dmc.DeepMindControl(task, config.action_repeat, config.size)
+        env = wrappers.NormalizeActions(env)
+    elif suite == "atari":
+        import envs.atari as atari
+
+        env = atari.Atari(
+            task,
+            config.action_repeat,
+            config.size,
+            gray=config.grayscale,
+            noops=config.noops,
+            lives=config.lives,
+            sticky=config.stickey,
+            actions=config.actions,
+            resize=config.resize,
+        )
+        env = wrappers.OneHotAction(env)
+    elif suite == "dmlab":
+        import envs.dmlab as dmlab
+
+        env = dmlab.DeepMindLabyrinth(
+            task, mode if "train" in mode else "test", config.action_repeat
+        )
+        env = wrappers.OneHotAction(env)
+    elif suite == "MemoryMaze":
+        from envs.memorymaze import MemoryMaze
+
+        env = MemoryMaze(task)
+        env = wrappers.OneHotAction(env)
+    elif suite == "crafter":
+        import envs.crafter as crafter
+
+        env = crafter.Crafter(task, config.size)
+        env = wrappers.OneHotAction(env)
+    elif suite == "minecraft":
+        import envs.minecraft as minecraft
+
+        env = minecraft.make_env(task, size=config.size, break_speed=config.break_speed)
+        env = wrappers.OneHotAction(env)
+    else:
+        raise NotImplementedError(suite)
+    env = wrappers.TimeLimit(env, config.time_limit)
+    env = wrappers.SelectAction(env, key="action")
+    env = wrappers.UUID(env)
+    env = wrappers.RewardObs(env)
+    return env
+
+
+def main(config):
+    logdir = pathlib.Path(config.logdir).expanduser()
+    config.traindir = config.traindir or logdir / "train_eps"
+    config.evaldir = config.evaldir or logdir / "eval_eps"
+    config.steps //= config.action_repeat
+    config.eval_every //= config.action_repeat
+    config.log_every //= config.action_repeat
+    config.time_limit //= config.action_repeat
+
+    print("Logdir", logdir)
+    logdir.mkdir(parents=True, exist_ok=True)
+    config.traindir.mkdir(parents=True, exist_ok=True)
+    config.evaldir.mkdir(parents=True, exist_ok=True)
+    step = count_steps(config.traindir)
+    # step in logger is environmental step
+    logger = tools.Logger(logdir, config.action_repeat * step)
+
+    print("Create envs.")
+    if config.offline_traindir:
+        directory = config.offline_traindir.format(**vars(config))
+    else:
+        directory = config.traindir
+    train_eps = tools.load_episodes(directory, limit=config.dataset_size)
+    if config.offline_evaldir:
+        directory = config.offline_evaldir.format(**vars(config))
+    else:
+        directory = config.evaldir
+    eval_eps = tools.load_episodes(directory, limit=1)
+    make = lambda mode: make_env(config, mode)
+    train_envs = [make("train") for _ in range(config.envs)]
+    eval_envs = [make("eval") for _ in range(config.envs)]
+    if config.envs > 1:
+        train_envs = [Parallel(env, "process") for env in train_envs]
+        eval_envs = [Parallel(env, "process") for env in eval_envs]
+    else:
+        train_envs = [Damy(env) for env in train_envs]
+        eval_envs = [Damy(env) for env in eval_envs]
+    acts = train_envs[0].action_space
