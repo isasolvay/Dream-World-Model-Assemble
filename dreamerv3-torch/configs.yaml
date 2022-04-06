@@ -206,4 +206,8 @@ MemoryMaze:
   action_repeat: 2
   actor_dist: 'onehot'
   imag_gradient: 'reinforce'
-  task: 'MemoryMaze
+  task: 'MemoryMaze_9x9'
+
+
+
+
