@@ -274,3 +274,114 @@ def main(config):
         train_envs = [Damy(env) for env in train_envs]
         eval_envs = [Damy(env) for env in eval_envs]
     acts = train_envs[0].action_space
+    config.num_actions = acts.n if hasattr(acts, "n") else acts.shape[0]
+
+    state = None
+    if not config.offline_traindir:
+        prefill = max(0, config.prefill - count_steps(config.traindir))
+        print(f"Prefill dataset ({prefill} steps).")
+        if hasattr(acts, "discrete"):
+            random_actor = tools.OneHotDist(
+                torch.zeros(config.num_actions).repeat(config.envs, 1)
+            )
+        else:
+            random_actor = torchd.independent.Independent(
+                torchd.uniform.Uniform(
+                    torch.Tensor(acts.low).repeat(config.envs, 1),
+                    torch.Tensor(acts.high).repeat(config.envs, 1),
+                ),
+                1,
+            )
+
+        def random_agent(o, d, s):
+            action = random_actor.sample()
+            logprob = random_actor.log_prob(action)
+            return {"action": action, "logprob": logprob}, None
+
+        state = tools.simulate(
+            random_agent,
+            train_envs,
+            train_eps,
+            config.traindir,
+            logger,
+            limit=config.dataset_size,
+            steps=prefill,
+        )
+        logger.step += prefill * config.action_repeat
+        print(f"Logger: ({logger.step} steps).")
+
+    print("Simulate agent.")
+    train_dataset = make_dataset(train_eps, config)
+    eval_dataset = make_dataset(eval_eps, config)
+    agent = Dreamer(
+        train_envs[0].observation_space,
+        train_envs[0].action_space,
+        config,
+        logger,
+        train_dataset,
+    ).to(config.device)
+    agent.requires_grad_(requires_grad=False)
+    if (logdir / "latest_model.pt").exists():
+        agent.load_state_dict(torch.load(logdir / "latest_model.pt"))
+        agent._should_pretrain._once = False
+
+    # make sure eval will be executed once after config.steps
+    while agent._step < config.steps + config.eval_every:
+        logger.write()
+        print("Start evaluation.")
+        eval_policy = functools.partial(agent, training=False)
+        tools.simulate(
+            eval_policy,
+            eval_envs,
+            eval_eps,
+            config.evaldir,
+            logger,
+            is_eval=True,
+            episodes=config.eval_episode_num,
+        )
+        if config.video_pred_log:
+            video_pred = agent._wm.video_pred(next(eval_dataset))
+            logger.video("eval_openl", to_np(video_pred))
+        print("Start training.")
+        state = tools.simulate(
+            agent,
+            train_envs,
+            train_eps,
+            config.traindir,
+            logger,
+            limit=config.dataset_size,
+            steps=config.eval_every,
+            state=state,
+        )
+        torch.save(agent.state_dict(), logdir / "latest_model.pt")
+    for env in train_envs + eval_envs:
+        try:
+            env.close()
+        except Exception:
+            pass
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--configs", nargs="+")
+    args, remaining = parser.parse_known_args()
+    configs = yaml.safe_load(
+        (pathlib.Path(sys.argv[0]).parent / "configs.yaml").read_text()
+    )
+
+    def recursive_update(base, update):
+        for key, value in update.items():
+            if isinstance(value, dict) and key in base:
+                recursive_update(base[key], value)
+            else:
+                base[key] = value
+
+    name_list = ["defaults", *args.configs] if args.configs else ["defaults"]
+    defaults = {}
+    for name in name_list:
+        recursive_update(defaults, configs[name])
+    parser = argparse.ArgumentParser()
+    for key, value in sorted(defaults.items(), key=lambda x: x[0]):
+        arg_type = tools.args_type(value)
+        parser.add_argument(f"--{key}", type=arg_type, default=arg_type(value))
+    main(parser.parse_args(remaining))
