@@ -24,4 +24,8 @@ class Atari:
         assert lives in ("unused", "discount", "reset"), lives
         assert actions in ("all", "needed"), actions
         assert resize in ("opencv", "pillow"), resize
- 
+        if self.LOCK is None:
+            import multiprocessing as mp
+
+            mp = mp.get_context("spawn")
+            self.LOCK =
