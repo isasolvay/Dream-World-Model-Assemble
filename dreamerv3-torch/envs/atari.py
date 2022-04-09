@@ -28,4 +28,10 @@ class Atari:
             import multiprocessing as mp
 
             mp = mp.get_context("spawn")
-            self.LOCK =
+            self.LOCK = mp.Lock()
+        self._resize = resize
+        if self._resize == "opencv":
+            import cv2
+
+            self._cv2 = cv2
+        
