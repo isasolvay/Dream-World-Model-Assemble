@@ -21,4 +21,7 @@ class Atari:
         seed=None,
     ):
         assert size[0] == size[1]
-        assert lives in ("unused"
+        assert lives in ("unused", "discount", "reset"), lives
+        assert actions in ("all", "needed"), actions
+        assert resize in ("opencv", "pillow"), resize
+ 
