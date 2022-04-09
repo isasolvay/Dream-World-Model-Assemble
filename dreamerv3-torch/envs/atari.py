@@ -16,4 +16,9 @@ class Atari:
         lives="unused",
         sticky=True,
         actions="all",
-  
+        length=108000,
+        resize="opencv",
+        seed=None,
+    ):
+        assert size[0] == size[1]
+        assert lives in ("unused"
