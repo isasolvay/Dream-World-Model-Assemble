@@ -9,4 +9,11 @@ class Atari:
     def __init__(
         self,
         name,
-        action_repea
+        action_repeat=4,
+        size=(84, 84),
+        gray=True,
+        noops=0,
+        lives="unused",
+        sticky=True,
+        actions="all",
+  
