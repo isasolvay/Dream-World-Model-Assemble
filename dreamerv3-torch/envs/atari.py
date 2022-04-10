@@ -40,4 +40,8 @@ class Atari:
             self._image = Image
         import gym.envs.atari
 
-        if name == "james_bond
+        if name == "james_bond":
+            name = "jamesbond"
+        self._repeat = action_repeat
+        self._size = size
+        self._gray = gra
