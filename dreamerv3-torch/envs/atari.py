@@ -44,4 +44,9 @@ class Atari:
             name = "jamesbond"
         self._repeat = action_repeat
         self._size = size
-        self._gray = gra
+        self._gray = gray
+        self._noops = noops
+        self._lives = lives
+        self._sticky = sticky
+        self._length = length
+        sel
