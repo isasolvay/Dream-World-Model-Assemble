@@ -49,4 +49,7 @@ class Atari:
         self._lives = lives
         self._sticky = sticky
         self._length = length
-        sel
+        self._random = np.random.RandomState(seed)
+        with self.LOCK:
+            self._env = gym.envs.atari.AtariEnv(
+      
