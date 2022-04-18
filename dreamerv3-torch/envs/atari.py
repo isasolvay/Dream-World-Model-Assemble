@@ -58,4 +58,7 @@ class Atari:
                 repeat_action_probability=0.25 if sticky else 0.0,
                 full_action_space=(actions == "all"),
             )
-        assert self._env.unwrapped.get_action_meanings()[0] 
+        assert self._env.unwrapped.get_action_meanings()[0] == "NOOP"
+        shape = self._env.observation_space.shape
+        self._buffer = [np.zeros(shape, np.uint8) for _ in range(2)]
+        sel
