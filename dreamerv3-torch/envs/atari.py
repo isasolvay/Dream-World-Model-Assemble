@@ -65,4 +65,8 @@ class Atari:
         self._last_lives = None
         self._done = True
         self._step = 0
-        sel
+        self.reward_range = [-np.inf, np.inf]
+
+    @property
+    def observation_space(self):
+        img_shape = self._size + ((1,) if sel
