@@ -94,4 +94,7 @@ class Atari:
         if len(action.shape) >= 1:
             action = np.argmax(action)
         for repeat in range(self._repeat):
+            _, reward, over, info = self._env.step(action)
+            self._step += 1
+            total += reward
      
