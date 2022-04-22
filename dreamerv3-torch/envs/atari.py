@@ -79,4 +79,10 @@ class Atari:
     @property
     def action_space(self):
         space = self._env.action_space
-        space.discre
+        space.discrete = True
+        return space
+
+    def step(self, action):
+        # if action['reset'] or self._done:
+        #   with self.LOCK:
+        #     self.
