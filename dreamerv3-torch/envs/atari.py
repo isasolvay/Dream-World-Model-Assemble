@@ -90,3 +90,8 @@ class Atari:
         #   self._step = 0
         #   return self._obs(0.0, is_first=True)
         total = 0.0
+        dead = False
+        if len(action.shape) >= 1:
+            action = np.argmax(action)
+        for repeat in range(self._repeat):
+     
