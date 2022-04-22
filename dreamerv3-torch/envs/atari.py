@@ -85,4 +85,8 @@ class Atari:
     def step(self, action):
         # if action['reset'] or self._done:
         #   with self.LOCK:
-        #     self.
+        #     self._reset()
+        #   self._done = False
+        #   self._step = 0
+        #   return self._obs(0.0, is_first=True)
+        total = 0.0
