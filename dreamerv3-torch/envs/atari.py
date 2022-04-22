@@ -72,4 +72,11 @@ class Atari:
         img_shape = self._size + ((1,) if self._gray else (3,))
         return gym.spaces.Dict(
             {
-                "image": gym.spaces.Box(0, 255, img_
+                "image": gym.spaces.Box(0, 255, img_shape, np.uint8),
+            }
+        )
+
+    @property
+    def action_space(self):
+        space = self._env.action_space
+        space.discre
