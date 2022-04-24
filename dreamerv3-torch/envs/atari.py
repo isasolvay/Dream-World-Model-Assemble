@@ -97,4 +97,8 @@ class Atari:
             _, reward, over, info = self._env.step(action)
             self._step += 1
             total += reward
-     
+            if repeat == self._repeat - 2:
+                self._screen(self._buffer[1])
+            if over:
+                break
+            if self._liv
