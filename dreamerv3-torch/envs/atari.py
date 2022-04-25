@@ -109,4 +109,6 @@ class Atari:
                     break
         if not self._repeat:
             self._buffer[1][:] = self._buffer[0][:]
-        
+        self._screen(self._buffer[0])
+        self._done = over or (self._length and self._step >= self._length)
+        return self._ob
