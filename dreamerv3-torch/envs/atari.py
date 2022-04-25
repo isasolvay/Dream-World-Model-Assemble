@@ -101,4 +101,8 @@ class Atari:
                 self._screen(self._buffer[1])
             if over:
                 break
-            if self._liv
+            if self._lives != "unused":
+                current = self._ale.lives()
+                if current < self._last_lives:
+                    dead = True
+            
