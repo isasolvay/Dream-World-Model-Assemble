@@ -105,4 +105,8 @@ class Atari:
                 current = self._ale.lives()
                 if current < self._last_lives:
                     dead = True
-            
+                    self._last_lives = current
+                    break
+        if not self._repeat:
+            self._buffer[1][:] = self._buffer[0][:]
+        
