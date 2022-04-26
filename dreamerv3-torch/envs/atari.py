@@ -124,4 +124,10 @@ class Atari:
                 _, _, dead, _ = self._env.step(0)
                 if dead:
                     self._env.reset()
-        self._last_lives 
+        self._last_lives = self._ale.lives()
+        self._screen(self._buffer[0])
+        self._buffer[1].fill(0)
+
+        self._done = False
+        self._step = 0
+        obs, reward, is_termi
