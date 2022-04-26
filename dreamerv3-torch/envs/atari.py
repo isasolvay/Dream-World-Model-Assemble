@@ -115,4 +115,9 @@ class Atari:
             total,
             is_last=self._done or (dead and self._lives == "reset"),
             is_terminal=dead or over,
-      
+        )
+
+    def reset(self):
+        self._env.reset()
+        if self._noops:
+            for _ in range(self._random.randin
