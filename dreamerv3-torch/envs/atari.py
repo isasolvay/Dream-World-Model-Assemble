@@ -111,4 +111,8 @@ class Atari:
             self._buffer[1][:] = self._buffer[0][:]
         self._screen(self._buffer[0])
         self._done = over or (self._length and self._step >= self._length)
-        return self._ob
+        return self._obs(
+            total,
+            is_last=self._done or (dead and self._lives == "reset"),
+            is_terminal=dead or over,
+      
