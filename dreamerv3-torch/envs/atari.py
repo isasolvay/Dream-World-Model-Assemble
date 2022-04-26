@@ -120,4 +120,8 @@ class Atari:
     def reset(self):
         self._env.reset()
         if self._noops:
-            for _ in range(self._random.randin
+            for _ in range(self._random.randint(self._noops)):
+                _, _, dead, _ = self._env.step(0)
+                if dead:
+                    self._env.reset()
+        self._last_lives 
