@@ -139,4 +139,7 @@ class Atari:
         if image.shape[:2] != self._size:
             if self._resize == "opencv":
                 image = self._cv2.resize(
-                    ima
+                    image, self._size, interpolation=self._cv2.INTER_AREA
+                )
+            if self._resize == "pillow":
+                image = self._i
