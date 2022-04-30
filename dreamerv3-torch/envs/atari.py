@@ -148,4 +148,8 @@ class Atari:
         if self._gray:
             weights = [0.299, 0.587, 1 - (0.299 + 0.587)]
             image = np.tensordot(image, weights, (-1, 0)).astype(image.dtype)
-        
+            image = image[:, :, None]
+        return (
+            {"image": image, "is_terminal": is_terminal, "is_first": is_first},
+            reward,
+   
