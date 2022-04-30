@@ -142,4 +142,7 @@ class Atari:
                     image, self._size, interpolation=self._cv2.INTER_AREA
                 )
             if self._resize == "pillow":
-                image = self._i
+                image = self._image.fromarray(image)
+                image = image.resize(self._size, self._image.NEAREST)
+                image = np.array(image)
+        
