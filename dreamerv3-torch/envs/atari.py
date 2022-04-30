@@ -133,4 +133,7 @@ class Atari:
         obs, reward, is_terminal, _ = self._obs(0.0, is_first=True)
         return obs
 
-    def _obs(self, reward, is_first=False, is_last=False, is_terminal=Fal
+    def _obs(self, reward, is_first=False, is_last=False, is_terminal=False):
+        np.maximum(self._buffer[0], self._buffer[1], out=self._buffer[0])
+        image = self._buffer[0]
+        if image.shape[:2] !
