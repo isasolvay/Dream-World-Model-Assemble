@@ -130,4 +130,7 @@ class Atari:
 
         self._done = False
         self._step = 0
-        obs, reward, is_termi
+        obs, reward, is_terminal, _ = self._obs(0.0, is_first=True)
+        return obs
+
+    def _obs(self, reward, is_first=False, is_last=False, is_terminal=Fal
