@@ -152,4 +152,11 @@ class Atari:
         return (
             {"image": image, "is_terminal": is_terminal, "is_first": is_first},
             reward,
-   
+            is_last,
+            {},
+        )
+
+    def _screen(self, array):
+        self._ale.getScreenRGB2(array)
+
+    def clo
