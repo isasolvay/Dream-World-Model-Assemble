@@ -84,3 +84,26 @@ class DeepMindLabyrinth(object):
         return obs
 
     def step(self, action):
+        raw_action = np.array(self._action_set[action], np.intc)
+        reward = self._env.step(raw_action, num_steps=self._action_repeat)
+        self._done = not self._env.is_running()
+        obs = self._get_obs()
+        return obs, reward, self._done, {}
+
+    def render(self, *args, **kwargs):
+        if kwargs.get("mode", "rgb_array") != "rgb_array":
+            raise ValueError("Only render mode 'rgb_array' is supported.")
+        del args  # Unused
+        del kwargs  # Unused
+        return self._last_image
+
+    def close(self):
+        self._env.close()
+
+    def _get_obs(self):
+        if self._done:
+            image = 0 * self._last_image
+        else:
+            image = self._env.observations()["RGB_INTERLEAVED"]
+        self._last_image = image
+        return {"image": image}
