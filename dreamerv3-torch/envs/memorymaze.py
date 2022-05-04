@@ -11,4 +11,6 @@ class MemoryMaze:
         elif task == "15x15":
             self._env = gym.make("memory_maze:MemoryMaze-15x15-v0")
         else:
-            raise NotImplemente
+            raise NotImplementedError(task)
+        self._obs_is_dict = hasattr(self._env.observation_space, "spaces")
+        self._obs_key = 
