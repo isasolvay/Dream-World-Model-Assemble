@@ -13,4 +13,10 @@ class MemoryMaze:
         else:
             raise NotImplementedError(task)
         self._obs_is_dict = hasattr(self._env.observation_space, "spaces")
-        self._obs_key = 
+        self._obs_key = obs_key
+        self._act_key = act_key
+        self._size = size
+        self._gray = False
+
+    def __getattr__(self, name):
+        if na
