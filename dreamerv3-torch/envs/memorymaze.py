@@ -19,4 +19,8 @@ class MemoryMaze:
         self._gray = False
 
     def __getattr__(self, name):
-        if na
+        if name.startswith("__"):
+            raise AttributeError(name)
+        try:
+            return getattr(self._env, name)
+       
