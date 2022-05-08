@@ -23,4 +23,10 @@ class MemoryMaze:
             raise AttributeError(name)
         try:
             return getattr(self._env, name)
-       
+        except AttributeError:
+            raise ValueError(name)
+
+    @property
+    def observation_space(self):
+        if self._obs_is_dict:
+  
