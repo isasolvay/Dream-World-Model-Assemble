@@ -36,4 +36,6 @@ class MemoryMaze:
             {
                 **spaces,
                 "reward": gym.spaces.Box(-np.inf, np.inf, (), dtype=np.float32),
-    
+                "is_first": gym.spaces.Box(0, 1, (), dtype=bool),
+                "is_last": gym.spaces.Box(0, 1, (), dtype=bool),
+                "is_te
