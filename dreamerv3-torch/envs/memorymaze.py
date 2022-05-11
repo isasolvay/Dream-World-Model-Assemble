@@ -32,4 +32,8 @@ class MemoryMaze:
             spaces = self._env.observation_space.spaces.copy()
         else:
             spaces = {self._obs_key: self._env.observation_space}
-        ret
+        return gym.spaces.Dict(
+            {
+                **spaces,
+                "reward": gym.spaces.Box(-np.inf, np.inf, (), dtype=np.float32),
+    
