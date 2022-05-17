@@ -180,3 +180,57 @@ class MinecraftBase(gym.Env):
                 value = np.array(value)
             assert (key, value, value.dtype, value.shape, space)
         return obs
+
+    def _action(self, action):
+        if self._sticky_attack_length:
+            if action["attack"]:
+                self._sticky_attack_counter = self._sticky_attack_length
+            if self._sticky_attack_counter > 0:
+                action["attack"] = 1
+                action["jump"] = 0
+                self._sticky_attack_counter -= 1
+        if self._sticky_jump_length:
+            if action["jump"]:
+                self._sticky_jump_counter = self._sticky_jump_length
+            if self._sticky_jump_counter > 0:
+                action["jump"] = 1
+                action["forward"] = 1
+                self._sticky_jump_counter -= 1
+        if self._pitch_limit and action["camera"][0]:
+            lo, hi = self._pitch_limit
+            if not (lo <= self._pitch + action["camera"][0] <= hi):
+                action["camera"] = (0, action["camera"][1])
+            self._pitch += action["camera"][0]
+        return action
+
+    def _insert_defaults(self, actions):
+        actions = {name: action.copy() for name, action in actions.items()}
+        for key, default in self._noop_action.items():
+            for action in actions.values():
+                if key not in action:
+                    action[key] = default
+        return actions
+
+    def _flatten(self, nest, prefix=None):
+        result = {}
+        for key, value in nest.items():
+            key = prefix + "/" + key if prefix else key
+            if isinstance(value, gym.spaces.Dict):
+                value = value.spaces
+            if isinstance(value, dict):
+                result.update(self._flatten(value, key))
+            else:
+                result[key] = value
+        return result
+
+    def _unflatten(self, flat):
+        result = {}
+        for key, value in flat.items():
+            parts = key.split("/")
+            node = result
+            for part in parts[:-1]:
+                if part not in node:
+                    node[part] = {}
+                node = node[part]
+            node[parts[-1]] = value
+        return result
