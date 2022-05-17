@@ -44,4 +44,9 @@ class MemoryMaze:
 
     @property
     def action_space(self):
-        space 
+        space = self._env.action_space
+        space.discrete = True
+        return space
+
+    def step(self, action):
+        obs, reward, done, info = self
