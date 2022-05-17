@@ -49,4 +49,8 @@ class MemoryMaze:
         return space
 
     def step(self, action):
-        obs, reward, done, info = self
+        obs, reward, done, info = self._env.step(action)
+        if not self._obs_is_dict:
+            obs = {self._obs_key: obs}
+        obs["reward"] = reward
+        obs["
