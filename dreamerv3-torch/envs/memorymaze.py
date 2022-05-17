@@ -53,4 +53,7 @@ class MemoryMaze:
         if not self._obs_is_dict:
             obs = {self._obs_key: obs}
         obs["reward"] = reward
-        obs["
+        obs["is_first"] = False
+        obs["is_last"] = done
+        obs["is_terminal"] = info.get("is_terminal", False)
+        return obs, reward, done, info
