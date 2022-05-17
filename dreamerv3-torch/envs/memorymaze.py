@@ -38,4 +38,10 @@ class MemoryMaze:
                 "reward": gym.spaces.Box(-np.inf, np.inf, (), dtype=np.float32),
                 "is_first": gym.spaces.Box(0, 1, (), dtype=bool),
                 "is_last": gym.spaces.Box(0, 1, (), dtype=bool),
-                "is_te
+                "is_terminal": gym.spaces.Box(0, 1, (), dtype=bool),
+            }
+        )
+
+    @property
+    def action_space(self):
+        space 
