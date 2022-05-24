@@ -33,4 +33,7 @@ class NormalizeActions(gym.Wrapper):
             np.isfinite(env.action_space.low), np.isfinite(env.action_space.high)
         )
         self._low = np.where(self._mask, env.action_space.low, -1)
- 
+        self._high = np.where(self._mask, env.action_space.high, 1)
+
+    def action_space(self):
+        low = np.where(self._mask, -np.ones_li
