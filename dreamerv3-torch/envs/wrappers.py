@@ -36,4 +36,6 @@ class NormalizeActions(gym.Wrapper):
         self._high = np.where(self._mask, env.action_space.high, 1)
 
     def action_space(self):
-        low = np.where(self._mask, -np.ones_li
+        low = np.where(self._mask, -np.ones_like(self._low), self._low)
+        high = np.where(self._mask, np.ones_like(self._low), self._high)
+        return gym.spaces.Box(low, high, d
