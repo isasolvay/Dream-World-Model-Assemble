@@ -48,3 +48,6 @@ class NormalizeActions(gym.Wrapper):
 
 class OneHotAction(gym.Wrapper):
     def __init__(self, env):
+        assert isinstance(env.action_space, gym.spaces.Discrete)
+        super().__init__(env)
+        self._random = np.r
