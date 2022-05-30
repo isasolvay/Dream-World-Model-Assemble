@@ -50,4 +50,8 @@ class OneHotAction(gym.Wrapper):
     def __init__(self, env):
         assert isinstance(env.action_space, gym.spaces.Discrete)
         super().__init__(env)
-        self._random = np.r
+        self._random = np.random.RandomState()
+
+    def action_space(self):
+        shape = (self.env.action_space.n,)
+        space = gym.spaces.Box(low=0
