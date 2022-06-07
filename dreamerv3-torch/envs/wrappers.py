@@ -62,4 +62,7 @@ class OneHotAction(gym.Wrapper):
     def step(self, action):
         index = np.argmax(action).astype(int)
         reference = np.zeros_like(action)
-        
+        reference[index] = 1
+        if not np.allclose(reference, action):
+            raise ValueError(f"Invalid one-hot action:\n{action}")
+       
