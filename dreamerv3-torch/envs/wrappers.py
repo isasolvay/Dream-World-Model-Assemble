@@ -65,4 +65,10 @@ class OneHotAction(gym.Wrapper):
         reference[index] = 1
         if not np.allclose(reference, action):
             raise ValueError(f"Invalid one-hot action:\n{action}")
-       
+        return self.env.step(index)
+
+    def reset(self):
+        return self.env.reset()
+
+    def _sample_action(self):
+        actions = sel
