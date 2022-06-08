@@ -74,4 +74,12 @@ class OneHotAction(gym.Wrapper):
         actions = self.env.action_space.n
         index = self._random.randint(0, actions)
         reference = np.zeros(actions, dtype=np.float32)
-        reference
+        reference[index] = 1.0
+        return reference
+
+
+class RewardObs(gym.Wrapper):
+    def __init__(self, env):
+        super().__init__(env)
+
+    de
