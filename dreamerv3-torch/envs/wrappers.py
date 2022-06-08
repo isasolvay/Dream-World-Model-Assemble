@@ -85,4 +85,9 @@ class RewardObs(gym.Wrapper):
     def observation_space(self):
         spaces = self.env.observation_space.spaces
         if "reward" not in spaces:
-            spaces["r
+            spaces["reward"] = gym.spaces.Box(
+                -np.inf, np.inf, shape=(1,), dtype=np.float32
+            )
+        return gym.spaces.Dict(spaces)
+
+   
