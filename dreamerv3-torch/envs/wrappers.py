@@ -82,4 +82,7 @@ class RewardObs(gym.Wrapper):
     def __init__(self, env):
         super().__init__(env)
 
-    de
+    def observation_space(self):
+        spaces = self.env.observation_space.spaces
+        if "reward" not in spaces:
+            spaces["r
