@@ -90,4 +90,7 @@ class RewardObs(gym.Wrapper):
             )
         return gym.spaces.Dict(spaces)
 
-   
+    def step(self, action):
+        obs, reward, done, info = self.env.step(action)
+        if "reward" not in obs:
+            obs["rew
