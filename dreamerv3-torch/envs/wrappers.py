@@ -93,4 +93,9 @@ class RewardObs(gym.Wrapper):
     def step(self, action):
         obs, reward, done, info = self.env.step(action)
         if "reward" not in obs:
-            obs["rew
+            obs["reward"] = reward
+        return obs, reward, done, info
+
+    def reset(self):
+        obs = self.env.reset()
+        if "reward" not in o
