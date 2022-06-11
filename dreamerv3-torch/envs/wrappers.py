@@ -112,4 +112,7 @@ class SelectAction(gym.Wrapper):
         return self.env.step(action[self._key])
 
 
-class UUID(gym.Wrap
+class UUID(gym.Wrapper):
+    def __init__(self, env):
+        super().__init__(env)
+        timestamp = datetime.datetime.now().strftime("%Y%m%d
