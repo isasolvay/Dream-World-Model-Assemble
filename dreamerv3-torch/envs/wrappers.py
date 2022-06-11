@@ -98,4 +98,11 @@ class RewardObs(gym.Wrapper):
 
     def reset(self):
         obs = self.env.reset()
-        if "reward" not in o
+        if "reward" not in obs:
+            obs["reward"] = 0.0
+        return obs
+
+
+class SelectAction(gym.Wrapper):
+    def __init__(self, env, key):
+        super().__
