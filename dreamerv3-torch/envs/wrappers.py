@@ -105,4 +105,11 @@ class RewardObs(gym.Wrapper):
 
 class SelectAction(gym.Wrapper):
     def __init__(self, env, key):
-        super().__
+        super().__init__(env)
+        self._key = key
+
+    def step(self, action):
+        return self.env.step(action[self._key])
+
+
+class UUID(gym.Wrap
