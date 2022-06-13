@@ -115,4 +115,8 @@ class SelectAction(gym.Wrapper):
 class UUID(gym.Wrapper):
     def __init__(self, env):
         super().__init__(env)
-        timestamp = datetime.datetime.now().strftime("%Y%m%d
+        timestamp = datetime.datetime.now().strftime("%Y%m%dT%H%M%S")
+        self.id = f"{timestamp}-{str(uuid.uuid4().hex)}"
+
+    def reset(self):
+        timestamp = datetime.datetime.now().strft
