@@ -119,4 +119,6 @@ class UUID(gym.Wrapper):
         self.id = f"{timestamp}-{str(uuid.uuid4().hex)}"
 
     def reset(self):
-        timestamp = datetime.datetime.now().strft
+        timestamp = datetime.datetime.now().strftime("%Y%m%dT%H%M%S")
+        self.id = f"{timestamp}-{str(uuid.uuid4().hex)}"
+        return self.env.reset()
