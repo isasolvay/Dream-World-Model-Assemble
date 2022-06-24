@@ -16,4 +16,7 @@ class Random(nn.Module):
     def actor(self, feat):
         if self._config.actor_dist == "onehot":
             return tools.OneHotDist(
-                torch.ze
+                torch.zeros(self._config.num_actions)
+                .repeat(self._config.envs, 1)
+                .to(self._config.device)
+           
