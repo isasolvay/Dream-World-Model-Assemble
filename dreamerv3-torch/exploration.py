@@ -19,4 +19,8 @@ class Random(nn.Module):
                 torch.zeros(self._config.num_actions)
                 .repeat(self._config.envs, 1)
                 .to(self._config.device)
-           
+            )
+        else:
+            return torchd.independent.Independent(
+                torchd.uniform.Uniform(
+                    torch.Tensor(self._a
