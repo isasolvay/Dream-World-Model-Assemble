@@ -23,4 +23,7 @@ class Random(nn.Module):
         else:
             return torchd.independent.Independent(
                 torchd.uniform.Uniform(
-                    torch.Tensor(self._a
+                    torch.Tensor(self._act_space.low)
+                    .repeat(self._config.envs, 1)
+                    .to(self._config.device),
+                 
