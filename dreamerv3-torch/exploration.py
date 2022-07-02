@@ -26,4 +26,7 @@ class Random(nn.Module):
                     torch.Tensor(self._act_space.low)
                     .repeat(self._config.envs, 1)
                     .to(self._config.device),
-                 
+                    torch.Tensor(self._act_space.high)
+                    .repeat(self._config.envs, 1)
+                    .to(self._config.device),
+  
