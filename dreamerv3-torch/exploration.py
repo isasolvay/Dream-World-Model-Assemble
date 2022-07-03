@@ -46,4 +46,7 @@ class Plan2Explore(nn.Module):
         self._behavior = models.ImagBehavior(config, world_model)
         self.actor = self._behavior.actor
         if config.dyn_discrete:
-            feat_size = config.
+            feat_size = config.dyn_stoch * config.dyn_discrete + config.dyn_deter
+            stoch = config.dyn_stoch * config.dyn_discrete
+        else:
+            fe
