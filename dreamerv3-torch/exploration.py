@@ -40,4 +40,7 @@ class Random(nn.Module):
 class Plan2Explore(nn.Module):
     def __init__(self, config, world_model, reward=None):
         super(Plan2Explore, self).__init__()
-   
+        self._config = config
+        self._use_amp = True if config.precision == 16 else False
+        self._reward = reward
+        self._behavior = mod
