@@ -37,4 +37,7 @@ class Random(nn.Module):
         return None, {}
 
 
-class P
+class Plan2Explore(nn.Module):
+    def __init__(self, config, world_model, reward=None):
+        super(Plan2Explore, self).__init__()
+   
