@@ -52,4 +52,7 @@ class Plan2Explore(nn.Module):
             feat_size = config.dyn_stoch + config.dyn_deter
             stoch = config.dyn_stoch
         size = {
-            "embed": world_model.embed_size
+            "embed": world_model.embed_size,
+            "stoch": stoch,
+            "deter": config.dyn_deter,
+            "feat": config.dyn_stoch + config.dy
