@@ -59,4 +59,8 @@ class Plan2Explore(nn.Module):
         }[self._config.disag_target]
         kw = dict(
             inp_dim=feat_size + config.num_actions
-            if 
+            if config.disag_action_cond
+            else 0,  # pytorch version
+            shape=size,
+            layers=config.disag_layers,
+            
