@@ -29,4 +29,12 @@ class Random(nn.Module):
                     torch.Tensor(self._act_space.high)
                     .repeat(self._config.envs, 1)
                     .to(self._config.device),
-  
+                ),
+                1,
+            )
+
+    def train(self, start, context, data):
+        return None, {}
+
+
+class P
