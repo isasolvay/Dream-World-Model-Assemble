@@ -55,4 +55,8 @@ class Plan2Explore(nn.Module):
             "embed": world_model.embed_size,
             "stoch": stoch,
             "deter": config.dyn_deter,
-            "feat": config.dyn_stoch + config.dy
+            "feat": config.dyn_stoch + config.dyn_deter,
+        }[self._config.disag_target]
+        kw = dict(
+            inp_dim=feat_size + config.num_actions
+            if 
