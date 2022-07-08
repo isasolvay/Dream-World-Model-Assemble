@@ -63,4 +63,8 @@ class Plan2Explore(nn.Module):
             else 0,  # pytorch version
             shape=size,
             layers=config.disag_layers,
-            
+            units=config.disag_units,
+            act=config.act,
+        )
+        self._networks = nn.ModuleList(
+            [networks.MLP(**kw) for _ in range(con
