@@ -70,4 +70,9 @@ class Plan2Explore(nn.Module):
             [networks.MLP(**kw) for _ in range(config.disag_models)]
         )
         kw = dict(wd=config.weight_decay, opt=config.opt, use_amp=self._use_amp)
-        self._model_opt = tools.Optimizer
+        self._model_opt = tools.Optimizer(
+            "explorer",
+            self.parameters(),
+            config.model_lr,
+            config.opt_eps,
+            confi
