@@ -67,4 +67,7 @@ class Plan2Explore(nn.Module):
             act=config.act,
         )
         self._networks = nn.ModuleList(
-            [networks.MLP(**kw) for _ in range(con
+            [networks.MLP(**kw) for _ in range(config.disag_models)]
+        )
+        kw = dict(wd=config.weight_decay, opt=config.opt, use_amp=self._use_amp)
+        self._model_opt = tools.Optimizer
