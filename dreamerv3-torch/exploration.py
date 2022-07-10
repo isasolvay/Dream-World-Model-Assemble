@@ -75,4 +75,10 @@ class Plan2Explore(nn.Module):
             self.parameters(),
             config.model_lr,
             config.opt_eps,
-            confi
+            config.grad_clip,
+            **kw
+        )
+
+    def train(self, start, context, data):
+        with tools.RequiresGrad(self):
+       
