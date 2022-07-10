@@ -81,4 +81,7 @@ class Plan2Explore(nn.Module):
 
     def train(self, start, context, data):
         with tools.RequiresGrad(self):
-       
+            metrics = {}
+            stoch = start["stoch"]
+            if self._config.dyn_discrete:
+                stoch = 
