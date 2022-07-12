@@ -84,4 +84,7 @@ class Plan2Explore(nn.Module):
             metrics = {}
             stoch = start["stoch"]
             if self._config.dyn_discrete:
-                stoch = 
+                stoch = torch.reshape(
+                    stoch, (stoch.shape[:-2] + ((stoch.shape[-2] * stoch.shape[-1]),))
+                )
+            targ
