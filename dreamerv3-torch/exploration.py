@@ -87,4 +87,8 @@ class Plan2Explore(nn.Module):
                 stoch = torch.reshape(
                     stoch, (stoch.shape[:-2] + ((stoch.shape[-2] * stoch.shape[-1]),))
                 )
-            targ
+            target = {
+                "embed": context["embed"],
+                "stoch": stoch,
+                "deter": start["deter"],
+                "feat": context[
