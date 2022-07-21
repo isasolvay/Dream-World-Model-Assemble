@@ -95,4 +95,7 @@ class Plan2Explore(nn.Module):
             }[self._config.disag_target]
             inputs = context["feat"]
             if self._config.disag_action_cond:
-               
+                inputs = torch.concat(
+                    [inputs, torch.Tensor(data["action"]).to(self._config.device)], -1
+                )
+            me
