@@ -98,4 +98,5 @@ class Plan2Explore(nn.Module):
                 inputs = torch.concat(
                     [inputs, torch.Tensor(data["action"]).to(self._config.device)], -1
                 )
-            me
+            metrics.update(self._train_ensemble(inputs, target))
+            metrics.update(self._behavior._train(start, self._intrinsic_reward)[
