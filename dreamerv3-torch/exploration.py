@@ -91,4 +91,8 @@ class Plan2Explore(nn.Module):
                 "embed": context["embed"],
                 "stoch": stoch,
                 "deter": start["deter"],
-                "feat": context[
+                "feat": context["feat"],
+            }[self._config.disag_target]
+            inputs = context["feat"]
+            if self._config.disag_action_cond:
+               
