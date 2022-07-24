@@ -99,4 +99,9 @@ class Plan2Explore(nn.Module):
                     [inputs, torch.Tensor(data["action"]).to(self._config.device)], -1
                 )
             metrics.update(self._train_ensemble(inputs, target))
-            metrics.update(self._behavior._train(start, self._intrinsic_reward)[
+            metrics.update(self._behavior._train(start, self._intrinsic_reward)[-1])
+        return None, metrics
+
+    def _intrinsic_reward(self, feat, state, action):
+        inputs = feat
+        if self._config.disa
