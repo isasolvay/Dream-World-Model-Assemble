@@ -104,4 +104,7 @@ class Plan2Explore(nn.Module):
 
     def _intrinsic_reward(self, feat, state, action):
         inputs = feat
-        if self._config.disa
+        if self._config.disag_action_cond:
+            inputs = torch.concat([inputs, action], -1)
+        preds = torch.cat(
+            [head(inputs, torch.float32).mode()[None
