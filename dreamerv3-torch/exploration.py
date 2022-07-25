@@ -111,3 +111,6 @@ class Plan2Explore(nn.Module):
         )
         disag = torch.mean(torch.std(preds, 0), -1)[..., None]
         if self._config.disag_log:
+            disag = torch.log(disag)
+        reward = self._config.expl_intr_scale * disag
+        if self._config.expl_extr_
