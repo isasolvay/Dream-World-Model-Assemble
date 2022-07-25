@@ -107,4 +107,7 @@ class Plan2Explore(nn.Module):
         if self._config.disag_action_cond:
             inputs = torch.concat([inputs, action], -1)
         preds = torch.cat(
-            [head(inputs, torch.float32).mode()[None
+            [head(inputs, torch.float32).mode()[None] for head in self._networks], 0
+        )
+        disag = torch.mean(torch.std(preds, 0), -1)[..., None]
+        if self._config.disag_log:
