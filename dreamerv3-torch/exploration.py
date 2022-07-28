@@ -113,4 +113,8 @@ class Plan2Explore(nn.Module):
         if self._config.disag_log:
             disag = torch.log(disag)
         reward = self._config.expl_intr_scale * disag
-        if self._config.expl_extr_
+        if self._config.expl_extr_scale:
+            reward += self._config.expl_extr_scale * self._reward(feat, state, action)
+        return reward
+
+    def _
