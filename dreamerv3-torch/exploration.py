@@ -117,4 +117,7 @@ class Plan2Explore(nn.Module):
             reward += self._config.expl_extr_scale * self._reward(feat, state, action)
         return reward
 
-    def _
+    def _train_ensemble(self, inputs, targets):
+        with torch.cuda.amp.autocast(self._use_amp):
+            if self._config.disag_offset:
+             
