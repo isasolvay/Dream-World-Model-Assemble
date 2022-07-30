@@ -122,4 +122,7 @@ class Plan2Explore(nn.Module):
             if self._config.disag_offset:
                 targets = targets[:, self._config.disag_offset :]
                 inputs = inputs[:, : -self._config.disag_offset]
-            targets = ta
+            targets = targets.detach()
+            inputs = inputs.detach()
+            preds = [head(inputs) for head in self._networks]
+            likes = torch.c
