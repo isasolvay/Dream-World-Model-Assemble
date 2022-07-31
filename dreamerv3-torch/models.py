@@ -171,3 +171,123 @@ class WorldModel(nn.Module):
                 feat=self.dynamics.get_feat(post),
                 kl=kl_value,
                 postent=self.dynamics.get_dist(post).entropy(),
+            )
+        post = {k: v.detach() for k, v in post.items()}
+        return post, context, metrics
+
+    def preprocess(self, obs):
+        obs = obs.copy()
+        obs["image"] = torch.Tensor(obs["image"]) / 255.0 - 0.5
+        # (batch_size, batch_length) -> (batch_size, batch_length, 1)
+        obs["reward"] = torch.Tensor(obs["reward"]).unsqueeze(-1)
+        if "discount" in obs:
+            obs["discount"] *= self._config.discount
+            # (batch_size, batch_length) -> (batch_size, batch_length, 1)
+            obs["discount"] = torch.Tensor(obs["discount"]).unsqueeze(-1)
+        if "is_terminal" in obs:
+            # this label is necessary to train cont_head
+            obs["cont"] = torch.Tensor(1.0 - obs["is_terminal"]).unsqueeze(-1)
+        else:
+            raise ValueError('"is_terminal" was not found in observation.')
+        obs = {k: torch.Tensor(v).to(self._config.device) for k, v in obs.items()}
+        return obs
+
+    def video_pred(self, data):
+        data = self.preprocess(data)
+        embed = self.encoder(data)
+
+        states, _ = self.dynamics.observe(
+            embed[:6, :5], data["action"][:6, :5], data["is_first"][:6, :5]
+        )
+        recon = self.heads["decoder"](self.dynamics.get_feat(states))["image"].mode()[
+            :6
+        ]
+        reward_post = self.heads["reward"](self.dynamics.get_feat(states)).mode()[:6]
+        init = {k: v[:, -1] for k, v in states.items()}
+        prior = self.dynamics.imagine(data["action"][:6, 5:], init)
+        openl = self.heads["decoder"](self.dynamics.get_feat(prior))["image"].mode()
+        reward_prior = self.heads["reward"](self.dynamics.get_feat(prior)).mode()
+        # observed image is given until 5 steps
+        model = torch.cat([recon[:, :5], openl], 1)
+        truth = data["image"][:6] + 0.5
+        model = model + 0.5
+        error = (model - truth + 1.0) / 2.0
+
+        return torch.cat([truth, model, error], 2)
+
+## 这是一个想象的时候会调用的类，类似于v2里面的dreamer?
+class ImagBehavior(nn.Module):
+    def __init__(self, config, world_model, stop_grad_actor=True, reward=None):
+        super(ImagBehavior, self).__init__()
+        self._use_amp = True if config.precision == 16 else False
+        self._config = config
+        self._world_model = world_model
+        self._stop_grad_actor = stop_grad_actor
+        self._reward = reward
+        if config.dyn_discrete:
+            feat_size = config.dyn_stoch * config.dyn_discrete + config.dyn_deter
+        else:
+            feat_size = config.dyn_stoch + config.dyn_deter
+        self.actor = networks.ActionHead(
+            feat_size,
+            config.num_actions,
+            config.actor_layers,
+            config.units,
+            config.act,
+            config.norm,
+            config.actor_dist,
+            config.actor_init_std,
+            config.actor_min_std,
+            config.actor_max_std,
+            config.actor_temp,
+            outscale=1.0,
+            unimix_ratio=config.action_unimix_ratio,
+        )
+        if config.value_head == "symlog_disc":
+            self.value = networks.MLP(
+                feat_size,
+                (255,),
+                config.value_layers,
+                config.units,
+                config.act,
+                config.norm,
+                config.value_head,
+                outscale=0.0,
+                device=config.device,
+            )
+        else:
+            self.value = networks.MLP(
+                feat_size,
+                [],
+                config.value_layers,
+                config.units,
+                config.act,
+                config.norm,
+                config.value_head,
+                outscale=0.0,
+                device=config.device,
+            )
+        if config.slow_value_target:
+            self._slow_value = copy.deepcopy(self.value)
+            self._updates = 0
+        kw = dict(wd=config.weight_decay, opt=config.opt, use_amp=self._use_amp)
+        self._actor_opt = tools.Optimizer(
+            "actor",
+            self.actor.parameters(),
+            config.actor_lr,
+            config.ac_opt_eps,
+            config.actor_grad_clip,
+            **kw,
+        )
+        self._value_opt = tools.Optimizer(
+            "value",
+            self.value.parameters(),
+            config.value_lr,
+            config.ac_opt_eps,
+            config.value_grad_clip,
+            **kw,
+        )
+        if self._config.reward_EMA:
+            self.reward_ema = RewardEMA(device=self._config.device)
+
+    def _train(
