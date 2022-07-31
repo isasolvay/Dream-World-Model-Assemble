@@ -125,4 +125,8 @@ class Plan2Explore(nn.Module):
             targets = targets.detach()
             inputs = inputs.detach()
             preds = [head(inputs) for head in self._networks]
-            likes = torch.c
+            likes = torch.cat(
+                [torch.mean(pred.log_prob(targets))[None] for pred in preds], 0
+            )
+            loss = -torch.mean(likes)
+   
