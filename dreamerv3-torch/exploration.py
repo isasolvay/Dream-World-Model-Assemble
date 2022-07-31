@@ -129,4 +129,5 @@ class Plan2Explore(nn.Module):
                 [torch.mean(pred.log_prob(targets))[None] for pred in preds], 0
             )
             loss = -torch.mean(likes)
-   
+        metrics = self._model_opt(loss, self.parameters())
+        return metrics
