@@ -291,3 +291,156 @@ class ImagBehavior(nn.Module):
             self.reward_ema = RewardEMA(device=self._config.device)
 
     def _train(
+        self,
+        start,
+        objective=None,
+        action=None,
+        reward=None,
+        imagine=None,
+        tape=None,
+        repeats=None,
+    ):
+        objective = objective or self._reward
+        self._update_slow_target()
+        metrics = {}
+
+        with tools.RequiresGrad(self.actor):
+            with torch.cuda.amp.autocast(self._use_amp):
+                imag_feat, imag_state, imag_action = self._imagine(
+                    start, self.actor, self._config.imag_horizon, repeats
+                )
+                reward = objective(imag_feat, imag_state, imag_action)
+                actor_ent = self.actor(imag_feat).entropy()
+                state_ent = self._world_model.dynamics.get_dist(imag_state).entropy()
+                # this target is not scaled
+                # slow is flag to indicate whether slow_target is used for lambda-return
+                target, weights, base = self._compute_target(
+                    imag_feat, imag_state, imag_action, reward, actor_ent, state_ent
+                )
+                actor_loss, mets = self._compute_actor_loss(
+                    imag_feat,
+                    imag_state,
+                    imag_action,
+                    target,
+                    actor_ent,
+                    state_ent,
+                    weights,
+                    base,
+                )
+                metrics.update(mets)
+                value_input = imag_feat
+
+        with tools.RequiresGrad(self.value):
+            with torch.cuda.amp.autocast(self._use_amp):
+                value = self.value(value_input[:-1].detach())
+                target = torch.stack(target, dim=1)
+                # (time, batch, 1), (time, batch, 1) -> (time, batch)
+                value_loss = -value.log_prob(target.detach())
+                slow_target = self._slow_value(value_input[:-1].detach())
+                if self._config.slow_value_target:
+                    value_loss = value_loss - value.log_prob(
+                        slow_target.mode().detach()
+                    )
+                if self._config.value_decay:
+                    value_loss += self._config.value_decay * value.mode()
+                # (time, batch, 1), (time, batch, 1) -> (1,)
+                value_loss = torch.mean(weights[:-1] * value_loss[:, :, None])
+
+        metrics.update(tools.tensorstats(value.mode(), "value"))
+        metrics.update(tools.tensorstats(target, "target"))
+        metrics.update(tools.tensorstats(reward, "imag_reward"))
+        if self._config.actor_dist in ["onehot"]:
+            metrics.update(
+                tools.tensorstats(
+                    torch.argmax(imag_action, dim=-1).float(), "imag_action"
+                )
+            )
+        else:
+            metrics.update(tools.tensorstats(imag_action, "imag_action"))
+        metrics["actor_entropy"] = to_np(torch.mean(actor_ent))
+        with tools.RequiresGrad(self):
+            metrics.update(self._actor_opt(actor_loss, self.actor.parameters()))
+            metrics.update(self._value_opt(value_loss, self.value.parameters()))
+        return imag_feat, imag_state, imag_action, weights, metrics
+
+    def _imagine(self, start, policy, horizon, repeats=None):
+        dynamics = self._world_model.dynamics
+        if repeats:
+            raise NotImplemented("repeats is not implemented in this version")
+        flatten = lambda x: x.reshape([-1] + list(x.shape[2:]))
+        start = {k: flatten(v) for k, v in start.items()}
+
+        def step(prev, _):
+            state, _, _ = prev
+            feat = dynamics.get_feat(state)
+            inp = feat.detach() if self._stop_grad_actor else feat
+            action = policy(inp).sample()
+            succ = dynamics.img_step(state, action, sample=self._config.imag_sample)
+            return succ, feat, action
+
+        succ, feats, actions = tools.static_scan(
+            step, [torch.arange(horizon)], (start, None, None)
+        )
+        states = {k: torch.cat([start[k][None], v[:-1]], 0) for k, v in succ.items()}
+        if repeats:
+            raise NotImplemented("repeats is not implemented in this version")
+
+        return feats, states, actions
+
+    def _compute_target(
+        self, imag_feat, imag_state, imag_action, reward, actor_ent, state_ent
+    ):
+        if "cont" in self._world_model.heads:
+            inp = self._world_model.dynamics.get_feat(imag_state)
+            discount = self._config.discount * self._world_model.heads["cont"](inp).mean
+        else:
+            discount = self._config.discount * torch.ones_like(reward)
+        if self._config.future_entropy and self._config.actor_entropy() > 0:
+            reward += self._config.actor_entropy() * actor_ent
+        if self._config.future_entropy and self._config.actor_state_entropy() > 0:
+            reward += self._config.actor_state_entropy() * state_ent
+        value = self.value(imag_feat).mode()
+        target = tools.lambda_return(
+            reward[1:],
+            value[:-1],
+            discount[1:],
+            bootstrap=value[-1],
+            lambda_=self._config.discount_lambda,
+            axis=0,
+        )
+        weights = torch.cumprod(
+            torch.cat([torch.ones_like(discount[:1]), discount[:-1]], 0), 0
+        ).detach()
+        return target, weights, value[:-1]
+
+    def _compute_actor_loss(
+        self,
+        imag_feat,
+        imag_state,
+        imag_action,
+        target,
+        actor_ent,
+        state_ent,
+        weights,
+        base,
+    ):
+        metrics = {}
+        inp = imag_feat.detach() if self._stop_grad_actor else imag_feat
+        policy = self.actor(inp)
+        actor_ent = policy.entropy()
+        # Q-val for actor is not transformed using symlog
+        target = torch.stack(target, dim=1)
+        if self._config.reward_EMA:
+            offset, scale = self.reward_ema(target)
+            normed_target = (target - offset) / scale
+            normed_base = (base - offset) / scale
+            adv = normed_target - normed_base
+            metrics.update(tools.tensorstats(normed_target, "normed_target"))
+            values = self.reward_ema.values
+            metrics["EMA_005"] = to_np(values[0])
+            metrics["EMA_095"] = to_np(values[1])
+
+        if self._config.imag_gradient == "dynamics":
+            actor_target = adv
+        elif self._config.imag_gradient == "reinforce":
+            actor_target = (
