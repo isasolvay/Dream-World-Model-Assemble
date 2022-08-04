@@ -102,3 +102,152 @@ class RSSM(nn.Module):
             obs_out_layers.append(act())
             if i == 0:
                 inp_dim = self._hidden
+        self._obs_out_layers = nn.Sequential(*obs_out_layers)
+        self._obs_out_layers.apply(tools.weight_init)
+
+        if self._discrete:
+            self._ims_stat_layer = nn.Linear(self._hidden, self._stoch * self._discrete)
+            self._ims_stat_layer.apply(tools.weight_init)
+            self._obs_stat_layer = nn.Linear(self._hidden, self._stoch * self._discrete)
+            self._obs_stat_layer.apply(tools.weight_init)
+        else:
+            self._ims_stat_layer = nn.Linear(self._hidden, 2 * self._stoch)
+            self._ims_stat_layer.apply(tools.weight_init)
+            self._obs_stat_layer = nn.Linear(self._hidden, 2 * self._stoch)
+            self._obs_stat_layer.apply(tools.weight_init)
+
+        if self._initial == "learned":
+            self.W = torch.nn.Parameter(
+                torch.zeros((1, self._deter), device=torch.device(self._device)),
+                requires_grad=True,
+            )
+
+    def initial(self, batch_size):
+        deter = torch.zeros(batch_size, self._deter).to(self._device)
+        if self._discrete:
+            state = dict(
+                logit=torch.zeros([batch_size, self._stoch, self._discrete]).to(
+                    self._device
+                ),
+                stoch=torch.zeros([batch_size, self._stoch, self._discrete]).to(
+                    self._device
+                ),
+                deter=deter,
+            )
+        else:
+            state = dict(
+                mean=torch.zeros([batch_size, self._stoch]).to(self._device),
+                std=torch.zeros([batch_size, self._stoch]).to(self._device),
+                stoch=torch.zeros([batch_size, self._stoch]).to(self._device),
+                deter=deter,
+            )
+        if self._initial == "zeros":
+            return state
+        elif self._initial == "learned":
+            state["deter"] = torch.tanh(self.W).repeat(batch_size, 1)
+            state["stoch"] = self.get_stoch(state["deter"])
+            return state
+        else:
+            raise NotImplementedError(self._initial)
+
+    def observe(self, embed, action, is_first, state=None):
+        swap = lambda x: x.permute([1, 0] + list(range(2, len(x.shape))))
+        if state is None:
+            state = self.initial(action.shape[0])
+        # (batch, time, ch) -> (time, batch, ch)
+        embed, action, is_first = swap(embed), swap(action), swap(is_first)
+        # prev_state[0] means selecting posterior of return(posterior, prior) from obs_step
+        post, prior = tools.static_scan(
+            lambda prev_state, prev_act, embed, is_first: self.obs_step(
+                prev_state[0], prev_act, embed, is_first
+            ),
+            (action, embed, is_first),
+            (state, state),
+        )
+
+        # (batch, time, stoch, discrete_num) -> (batch, time, stoch, discrete_num)
+        post = {k: swap(v) for k, v in post.items()}
+        prior = {k: swap(v) for k, v in prior.items()}
+        return post, prior
+
+    def imagine(self, action, state=None):
+        swap = lambda x: x.permute([1, 0] + list(range(2, len(x.shape))))
+        if state is None:
+            state = self.initial(action.shape[0])
+        assert isinstance(state, dict), state
+        action = action
+        action = swap(action)
+        prior = tools.static_scan(self.img_step, [action], state)
+        prior = prior[0]
+        prior = {k: swap(v) for k, v in prior.items()}
+        return prior
+
+    def get_feat(self, state):
+        stoch = state["stoch"]
+        if self._discrete:
+            shape = list(stoch.shape[:-2]) + [self._stoch * self._discrete]
+            stoch = stoch.reshape(shape)
+        return torch.cat([stoch, state["deter"]], -1)
+
+    def get_dist(self, state, dtype=None):
+        if self._discrete:
+            logit = state["logit"]
+            dist = torchd.independent.Independent(
+                tools.OneHotDist(logit, unimix_ratio=self._unimix_ratio), 1
+            )
+        else:
+            mean, std = state["mean"], state["std"]
+            dist = tools.ContDist(
+                torchd.independent.Independent(torchd.normal.Normal(mean, std), 1)
+            )
+        return dist
+
+    def obs_step(self, prev_state, prev_action, embed, is_first, sample=True):
+        # if shared is True, prior and post both use same networks(inp_layers, _img_out_layers, _ims_stat_layer)
+        # otherwise, post use different network(_obs_out_layers) with prior[deter] and embed as inputs
+        prev_action *= (1.0 / torch.clip(torch.abs(prev_action), min=1.0)).detach()
+
+        if torch.sum(is_first) > 0:
+            is_first = is_first[:, None]
+            prev_action *= 1.0 - is_first
+            init_state = self.initial(len(is_first))
+            for key, val in prev_state.items():
+                is_first_r = torch.reshape(
+                    is_first,
+                    is_first.shape + (1,) * (len(val.shape) - len(is_first.shape)),
+                )
+                prev_state[key] = (
+                    val * (1.0 - is_first_r) + init_state[key] * is_first_r
+                )
+
+        prior = self.img_step(prev_state, prev_action, None, sample)
+        if self._shared:
+            post = self.img_step(prev_state, prev_action, embed, sample)
+        else:
+            if self._temp_post:
+                x = torch.cat([prior["deter"], embed], -1)
+            else:
+                x = embed
+            # (batch_size, prior_deter + embed) -> (batch_size, hidden)
+            x = self._obs_out_layers(x)
+            # (batch_size, hidden) -> (batch_size, stoch, discrete_num)
+            stats = self._suff_stats_layer("obs", x)
+            if sample:
+                stoch = self.get_dist(stats).sample()
+            else:
+                stoch = self.get_dist(stats).mode()
+            post = {"stoch": stoch, "deter": prior["deter"], **stats}
+        return post, prior
+
+    # this is used for making future image
+    def img_step(self, prev_state, prev_action, embed=None, sample=True):
+        # (batch, stoch, discrete_num)
+        prev_action *= (1.0 / torch.clip(torch.abs(prev_action), min=1.0)).detach()
+        prev_stoch = prev_state["stoch"]
+        if self._discrete:
+            shape = list(prev_stoch.shape[:-2]) + [self._stoch * self._discrete]
+            # (batch, stoch, discrete_num) -> (batch, stoch * discrete_num)
+            prev_stoch = prev_stoch.reshape(shape)
+        if self._shared:
+            if embed is None:
+                shape = list(prev_action.shape[:-1]) + [self._embed]
