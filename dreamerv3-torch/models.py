@@ -444,3 +444,33 @@ class ImagBehavior(nn.Module):
             actor_target = adv
         elif self._config.imag_gradient == "reinforce":
             actor_target = (
+                policy.log_prob(imag_action)[:-1][:, :, None]
+                * (target - self.value(imag_feat[:-1]).mode()).detach()
+            )
+        elif self._config.imag_gradient == "both":
+            actor_target = (
+                policy.log_prob(imag_action)[:-1][:, :, None]
+                * (target - self.value(imag_feat[:-1]).mode()).detach()
+            )
+            mix = self._config.imag_gradient_mix()
+            actor_target = mix * target + (1 - mix) * actor_target
+            metrics["imag_gradient_mix"] = mix
+        else:
+            raise NotImplementedError(self._config.imag_gradient)
+        if not self._config.future_entropy and (self._config.actor_entropy() > 0):
+            actor_entropy = self._config.actor_entropy() * actor_ent[:-1][:, :, None]
+            actor_target += actor_entropy
+        if not self._config.future_entropy and (self._config.actor_state_entropy() > 0):
+            state_entropy = self._config.actor_state_entropy() * state_ent[:-1]
+            actor_target += state_entropy
+            metrics["actor_state_entropy"] = to_np(torch.mean(state_entropy))
+        actor_loss = -torch.mean(weights[:-1] * actor_target)
+        return actor_loss, metrics
+
+    def _update_slow_target(self):
+        if self._config.slow_value_target:
+            if self._updates % self._config.slow_target_update == 0:
+                mix = self._config.slow_target_fraction
+                for s, d in zip(self.value.parameters(), self._slow_value.parameters()):
+                    d.data = mix * s.data + (1 - mix) * d.data
+            self._updates += 1
