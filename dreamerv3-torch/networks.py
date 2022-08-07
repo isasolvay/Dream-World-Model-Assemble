@@ -396,3 +396,142 @@ class MultiEncoder(nn.Module):
         outputs = torch.cat(outputs, -1)
         return outputs
 
+
+class MultiDecoder(nn.Module):
+    def __init__(
+        self,
+        feat_size,
+        shapes,
+        mlp_keys,
+        cnn_keys,
+        act,
+        norm,
+        cnn_depth,
+        kernel_size,
+        minres,
+        mlp_layers,
+        mlp_units,
+        cnn_sigmoid,
+        image_dist,
+        vector_dist,
+    ):
+        super(MultiDecoder, self).__init__()
+        excluded = ("is_first", "is_last", "is_terminal", "reward")
+        shapes = {k: v for k, v in shapes.items() if k not in excluded}
+        self.cnn_shapes = {
+            k: v for k, v in shapes.items() if len(v) == 3 and re.match(cnn_keys, k)
+        }
+        self.mlp_shapes = {
+            k: v
+            for k, v in shapes.items()
+            if len(v) in (1, 2) and re.match(mlp_keys, k)
+        }
+        print("Decoder CNN shapes:", self.cnn_shapes)
+        print("Decoder MLP shapes:", self.mlp_shapes)
+
+        if self.cnn_shapes:
+            some_shape = list(self.cnn_shapes.values())[0]
+            shape = (sum(x[-1] for x in self.cnn_shapes.values()),) + some_shape[:-1]
+            self._cnn = ConvDecoder(
+                feat_size,
+                shape,
+                cnn_depth,
+                act,
+                norm,
+                kernel_size,
+                minres,
+                cnn_sigmoid=cnn_sigmoid,
+            )
+        if self.mlp_shapes:
+            self._mlp = MLP(
+                feat_size,
+                self.mlp_shapes,
+                mlp_layers,
+                mlp_units,
+                act,
+                norm,
+                vector_dist,
+            )
+        self._image_dist = image_dist
+
+    def forward(self, features):
+        dists = {}
+        if self.cnn_shapes:
+            feat = features
+            outputs = self._cnn(feat)
+            split_sizes = [v[-1] for v in self.cnn_shapes.values()]
+            outputs = torch.split(outputs, split_sizes, -1)
+            dists.update(
+                {
+                    key: self._make_image_dist(output)
+                    for key, output in zip(self.cnn_shapes.keys(), outputs)
+                }
+            )
+        if self.mlp_shapes:
+            dists.update(self._mlp(features))
+        return dists
+
+    def _make_image_dist(self, mean):
+        if self._image_dist == "normal":
+            return tools.ContDist(
+                torchd.independent.Independent(torchd.normal.Normal(mean, 1), 3)
+            )
+        if self._image_dist == "mse":
+            return tools.MSEDist(mean)
+        raise NotImplementedError(self._image_dist)
+
+
+class ConvEncoder(nn.Module):
+    def __init__(
+        self,
+        input_shape,
+        depth=32,
+        act="SiLU",
+        norm="LayerNorm",
+        kernel_size=4,
+        minres=4,
+    ):
+        super(ConvEncoder, self).__init__()
+        act = getattr(torch.nn, act)
+        norm = getattr(torch.nn, norm)
+        h, w, input_ch = input_shape
+        layers = []
+        for i in range(int(np.log2(h) - np.log2(minres))):
+            if i == 0:
+                in_dim = input_ch
+            else:
+                in_dim = 2 ** (i - 1) * depth
+            out_dim = 2**i * depth
+            layers.append(
+                Conv2dSame(
+                    in_channels=in_dim,
+                    out_channels=out_dim,
+                    kernel_size=kernel_size,
+                    stride=2,
+                    bias=False,
+                )
+            )
+            layers.append(ChLayerNorm(out_dim))
+            layers.append(act())
+            h, w = h // 2, w // 2
+
+        self.outdim = out_dim * h * w
+        self.layers = nn.Sequential(*layers)
+        self.layers.apply(tools.weight_init)
+
+    def forward(self, obs):
+        # (batch, time, h, w, ch) -> (batch * time, h, w, ch)
+        x = obs.reshape((-1,) + tuple(obs.shape[-3:]))
+        # (batch * time, h, w, ch) -> (batch * time, ch, h, w)
+        x = x.permute(0, 3, 1, 2)
+        x = self.layers(x)
+        # (batch * time, ...) -> (batch * time, -1)
+        x = x.reshape([x.shape[0], np.prod(x.shape[1:])])
+        # (batch * time, -1) -> (batch, time, -1)
+        return x.reshape(list(obs.shape[:-3]) + [x.shape[-1]])
+
+
+class ConvDecoder(nn.Module):
+    def __init__(
+        self,
+        feat_size,
