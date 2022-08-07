@@ -535,3 +535,149 @@ class ConvDecoder(nn.Module):
     def __init__(
         self,
         feat_size,
+        shape=(3, 64, 64),
+        depth=32,
+        act=nn.ELU,
+        norm=nn.LayerNorm,
+        kernel_size=4,
+        minres=4,
+        outscale=1.0,
+        cnn_sigmoid=False,
+    ):
+        super(ConvDecoder, self).__init__()
+        act = getattr(torch.nn, act)
+        norm = getattr(torch.nn, norm)
+        self._shape = shape
+        self._cnn_sigmoid = cnn_sigmoid
+        layer_num = int(np.log2(shape[1]) - np.log2(minres))
+        self._minres = minres
+        self._embed_size = minres**2 * depth * 2 ** (layer_num - 1)
+
+        self._linear_layer = nn.Linear(feat_size, self._embed_size)
+        self._linear_layer.apply(tools.weight_init)
+        in_dim = self._embed_size // (minres**2)
+
+        layers = []
+        h, w = minres, minres
+        for i in range(layer_num):
+            out_dim = self._embed_size // (minres**2) // (2 ** (i + 1))
+            bias = False
+            initializer = tools.weight_init
+            if i == layer_num - 1:
+                out_dim = self._shape[0]
+                act = False
+                bias = True
+                norm = False
+                initializer = tools.uniform_weight_init(outscale)
+
+            if i != 0:
+                in_dim = 2 ** (layer_num - (i - 1) - 2) * depth
+            pad_h, outpad_h = self.calc_same_pad(k=kernel_size, s=2, d=1)
+            pad_w, outpad_w = self.calc_same_pad(k=kernel_size, s=2, d=1)
+            layers.append(
+                nn.ConvTranspose2d(
+                    in_dim,
+                    out_dim,
+                    kernel_size,
+                    2,
+                    padding=(pad_h, pad_w),
+                    output_padding=(outpad_h, outpad_w),
+                    bias=bias,
+                )
+            )
+            if norm:
+                layers.append(ChLayerNorm(out_dim))
+            if act:
+                layers.append(act())
+            [m.apply(initializer) for m in layers[-3:]]
+            h, w = h * 2, w * 2
+
+        self.layers = nn.Sequential(*layers)
+
+    def calc_same_pad(self, k, s, d):
+        val = d * (k - 1) - s + 1
+        pad = math.ceil(val / 2)
+        outpad = pad * 2 - val
+        return pad, outpad
+
+    def forward(self, features, dtype=None):
+        x = self._linear_layer(features)
+        # (batch, time, -1) -> (batch * time, h, w, ch)
+        x = x.reshape(
+            [-1, self._minres, self._minres, self._embed_size // self._minres**2]
+        )
+        # (batch, time, -1) -> (batch * time, ch, h, w)
+        x = x.permute(0, 3, 1, 2)
+        x = self.layers(x)
+        # (batch, time, -1) -> (batch * time, ch, h, w) necessary???
+        mean = x.reshape(features.shape[:-1] + self._shape)
+        # (batch * time, ch, h, w) -> (batch * time, h, w, ch)
+        mean = mean.permute(0, 1, 3, 4, 2)
+        if self._cnn_sigmoid:
+            mean = F.sigmoid(mean) - 0.5
+        return mean
+
+
+class MLP(nn.Module):
+    def __init__(
+        self,
+        inp_dim,
+        shape,
+        layers,
+        units,
+        act="SiLU",
+        norm="LayerNorm",
+        dist="normal",
+        std=1.0,
+        outscale=1.0,
+        symlog_inputs=False,
+        device="cuda",
+    ):
+        super(MLP, self).__init__()
+        self._shape = (shape,) if isinstance(shape, int) else shape
+        if self._shape is not None and len(self._shape) == 0:
+            self._shape = (1,)
+        self._layers = layers
+        act = getattr(torch.nn, act)
+        norm = getattr(torch.nn, norm)
+        self._dist = dist
+        self._std = std
+        self._symlog_inputs = symlog_inputs
+        self._device = device
+
+        layers = []
+        for index in range(self._layers):
+            layers.append(nn.Linear(inp_dim, units, bias=False))
+            layers.append(norm(units, eps=1e-03))
+            layers.append(act())
+            if index == 0:
+                inp_dim = units
+        self.layers = nn.Sequential(*layers)
+        self.layers.apply(tools.weight_init)
+
+        if isinstance(self._shape, dict):
+            self.mean_layer = nn.ModuleDict()
+            for name, shape in self._shape.items():
+                self.mean_layer[name] = nn.Linear(inp_dim, np.prod(shape))
+            self.mean_layer.apply(tools.uniform_weight_init(outscale))
+            if self._std == "learned":
+                self.std_layer = nn.ModuleDict()
+                for name, shape in self._shape.items():
+                    self.std_layer[name] = nn.Linear(inp_dim, np.prod(shape))
+                self.std_layer.apply(tools.uniform_weight_init(outscale))
+        elif self._shape is not None:
+            self.mean_layer = nn.Linear(inp_dim, np.prod(self._shape))
+            self.mean_layer.apply(tools.uniform_weight_init(outscale))
+            if self._std == "learned":
+                self.std_layer = nn.Linear(units, np.prod(self._shape))
+                self.std_layer.apply(tools.uniform_weight_init(outscale))
+
+    def forward(self, features, dtype=None):
+        x = features
+        if self._symlog_inputs:
+            x = tools.symlog(x)
+        out = self.layers(x)
+        if self._shape is None:
+            return out
+        if isinstance(self._shape, dict):
+            dists = {}
