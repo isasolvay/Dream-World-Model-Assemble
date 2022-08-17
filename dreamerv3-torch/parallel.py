@@ -177,3 +177,34 @@ class ProcessPipeWorker:
 class Message(enum.Enum):
     OK = 1
     RUN = 2
+    RESULT = 3
+    STOP = 4
+    ERROR = 5
+
+
+class Future:
+    def __init__(self, receive, callid):
+        self._receive = receive
+        self._callid = callid
+        self._result = None
+        self._complete = False
+
+    def __call__(self):
+        if not self._complete:
+            self._result = self._receive(self._callid)
+            self._complete = True
+        return self._result
+
+
+class Damy:
+    def __init__(self, env):
+        self._env = env
+
+    def __getattr__(self, name):
+        return getattr(self._env, name)
+
+    def step(self, action):
+        return lambda: self._env.step(action)
+
+    def reset(self):
+        return lambda: self._env.reset()
