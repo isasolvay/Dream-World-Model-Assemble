@@ -226,3 +226,147 @@ def simulate(
 
                     if len(eval_scores) >= episodes and not eval_done:
                         logger.scalar(f"eval_return", score)
+                        logger.scalar(f"eval_length", length)
+                        logger.scalar(f"eval_episodes", len(eval_scores))
+                        logger.write(step=logger.step)
+                        eval_done = True
+    if is_eval:
+        # keep only last item for saving memory. this cache is used for video_pred later
+        while len(cache) > 1:
+            # FIFO
+            cache.popitem(last=False)
+    return (step - steps, episode - episodes, done, length, obs, agent_state, reward)
+
+
+class CollectDataset:
+    def __init__(
+        self, env, mode, train_eps, eval_eps=dict(), callbacks=None, precision=32
+    ):
+        self._env = env
+        self._callbacks = callbacks or ()
+        self._precision = precision
+        self._episode = None
+        self._cache = dict(train=train_eps, eval=eval_eps)[mode]
+        self._temp_name = str(uuid.uuid4())
+
+    def __getattr__(self, name):
+        return getattr(self._env, name)
+
+    def step(self, action):
+        obs, reward, done, info = self._env.step(action)
+        obs = {k: self._convert(v) for k, v in obs.items()}
+        transition = obs.copy()
+        if isinstance(action, dict):
+            transition.update(action)
+        else:
+            transition["action"] = action
+        transition["reward"] = reward
+        transition["discount"] = info.get("discount", np.array(1 - float(done)))
+        self._episode.append(transition)
+        self.add_to_cache(transition)
+        if done:
+            # detele transitions before whole episode is stored
+            del self._cache[self._temp_name]
+            self._temp_name = str(uuid.uuid4())
+            for key, value in self._episode[1].items():
+                if key not in self._episode[0]:
+                    self._episode[0][key] = 0 * value
+            episode = {k: [t[k] for t in self._episode] for k in self._episode[0]}
+            episode = {k: self._convert(v) for k, v in episode.items()}
+            info["episode"] = episode
+            for callback in self._callbacks:
+                callback(episode)
+        return obs, reward, done, info
+
+    def reset(self):
+        obs = self._env.reset()
+        transition = obs.copy()
+        # missing keys will be filled with a zeroed out version of the first
+        # transition, because we do not know what action information the agent will
+        # pass yet.
+        transition["reward"] = 0.0
+        transition["discount"] = 1.0
+        self._episode = [transition]
+        self.add_to_cache(transition)
+        return obs
+
+
+def add_to_cache(cache, id, transition):
+    if id not in cache:
+        cache[id] = dict()
+        for key, val in transition.items():
+            cache[id][key] = [convert(val)]
+    else:
+        for key, val in transition.items():
+            if key not in cache[id]:
+                # fill missing data(action, etc.) at second time
+                cache[id][key] = [convert(0 * val)]
+                cache[id][key].append(convert(val))
+            else:
+                cache[id][key].append(convert(val))
+
+
+def erase_over_episodes(cache, dataset_size):
+    step_in_dataset = 0
+    for key, ep in reversed(sorted(cache.items(), key=lambda x: x[0])):
+        if (
+            not dataset_size
+            or step_in_dataset + (len(ep["reward"]) - 1) <= dataset_size
+        ):
+            step_in_dataset += len(ep["reward"]) - 1
+        else:
+            del cache[key]
+    return step_in_dataset
+
+
+def convert(value, precision=32):
+    value = np.array(value)
+    if np.issubdtype(value.dtype, np.floating):
+        dtype = {16: np.float16, 32: np.float32, 64: np.float64}[precision]
+    elif np.issubdtype(value.dtype, np.signedinteger):
+        dtype = {16: np.int16, 32: np.int32, 64: np.int64}[precision]
+    elif np.issubdtype(value.dtype, np.uint8):
+        dtype = np.uint8
+    elif np.issubdtype(value.dtype, bool):
+        dtype = bool
+    else:
+        raise NotImplementedError(value.dtype)
+    return value.astype(dtype)
+
+
+def save_episodes(directory, episodes):
+    directory = pathlib.Path(directory).expanduser()
+    directory.mkdir(parents=True, exist_ok=True)
+    for filename, episode in episodes.items():
+        length = len(episode["reward"])
+        filename = directory / f"{filename}-{length}.npz"
+        with io.BytesIO() as f1:
+            np.savez_compressed(f1, **episode)
+            f1.seek(0)
+            with filename.open("wb") as f2:
+                f2.write(f1.read())
+    return True
+
+
+def from_generator(generator, batch_size):
+    while True:
+        batch = []
+        for _ in range(batch_size):
+            batch.append(next(generator))
+        data = {}
+        for key in batch[0].keys():
+            data[key] = []
+            for i in range(batch_size):
+                data[key].append(batch[i][key])
+            data[key] = np.stack(data[key], 0)
+        yield data
+
+
+def sample_episodes(episodes, length, seed=0):
+    random = np.random.RandomState(seed)
+    while True:
+        size = 0
+        ret = None
+        p = np.array(
+            [len(next(iter(episode.values()))) for episode in episodes.values()]
+        )
