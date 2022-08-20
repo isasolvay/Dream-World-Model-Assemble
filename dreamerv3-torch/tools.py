@@ -370,3 +370,136 @@ def sample_episodes(episodes, length, seed=0):
         p = np.array(
             [len(next(iter(episode.values()))) for episode in episodes.values()]
         )
+        p = p / np.sum(p)
+        while size < length:
+            episode = random.choice(list(episodes.values()), p=p)
+            total = len(next(iter(episode.values())))
+            # make sure at least one transition included
+            if total < 2:
+                continue
+            if not ret:
+                index = int(random.randint(0, total - 1))
+                ret = {
+                    k: v[index : min(index + length, total)] for k, v in episode.items()
+                }
+                if "is_first" in ret:
+                    ret["is_first"][0] = True
+            else:
+                # 'is_first' comes after 'is_last'
+                index = 0
+                possible = length - size
+                ret = {
+                    k: np.append(
+                        ret[k], v[index : min(index + possible, total)], axis=0
+                    )
+                    for k, v in episode.items()
+                }
+                if "is_first" in ret:
+                    ret["is_first"][size] = True
+            size = len(next(iter(ret.values())))
+        yield ret
+
+
+def load_episodes(directory, limit=None, reverse=True):
+    directory = pathlib.Path(directory).expanduser()
+    episodes = collections.OrderedDict()
+    total = 0
+    if reverse:
+        for filename in reversed(sorted(directory.glob("*.npz"))):
+            try:
+                with filename.open("rb") as f:
+                    episode = np.load(f)
+                    episode = {k: episode[k] for k in episode.keys()}
+            except Exception as e:
+                print(f"Could not load episode: {e}")
+                continue
+            # extract only filename without extension
+            episodes[str(os.path.splitext(os.path.basename(filename))[0])] = episode
+            total += len(episode["reward"]) - 1
+            if limit and total >= limit:
+                break
+    else:
+        for filename in sorted(directory.glob("*.npz")):
+            try:
+                with filename.open("rb") as f:
+                    episode = np.load(f)
+                    episode = {k: episode[k] for k in episode.keys()}
+            except Exception as e:
+                print(f"Could not load episode: {e}")
+                continue
+            episodes[str(filename)] = episode
+            total += len(episode["reward"]) - 1
+            if limit and total >= limit:
+                break
+    return episodes
+
+
+class SampleDist:
+    def __init__(self, dist, samples=100):
+        self._dist = dist
+        self._samples = samples
+
+    @property
+    def name(self):
+        return "SampleDist"
+
+    def __getattr__(self, name):
+        return getattr(self._dist, name)
+
+    def mean(self):
+        samples = self._dist.sample(self._samples)
+        return torch.mean(samples, 0)
+
+    def mode(self):
+        sample = self._dist.sample(self._samples)
+        logprob = self._dist.log_prob(sample)
+        return sample[torch.argmax(logprob)][0]
+
+    def entropy(self):
+        sample = self._dist.sample(self._samples)
+        logprob = self.log_prob(sample)
+        return -torch.mean(logprob, 0)
+
+
+class OneHotDist(torchd.one_hot_categorical.OneHotCategorical):
+    def __init__(self, logits=None, probs=None, unimix_ratio=0.0):
+        if logits is not None and unimix_ratio > 0.0:
+            probs = F.softmax(logits, dim=-1)
+            probs = probs * (1.0 - unimix_ratio) + unimix_ratio / probs.shape[-1]
+            logits = torch.log(probs)
+            super().__init__(logits=logits, probs=None)
+        else:
+            super().__init__(logits=logits, probs=probs)
+
+    def mode(self):
+        _mode = F.one_hot(
+            torch.argmax(super().logits, axis=-1), super().logits.shape[-1]
+        )
+        return _mode.detach() + super().logits - super().logits.detach()
+
+    def sample(self, sample_shape=(), seed=None):
+        if seed is not None:
+            raise ValueError("need to check")
+        sample = super().sample(sample_shape)
+        probs = super().probs
+        while len(probs.shape) < len(sample.shape):
+            probs = probs[None]
+        sample += probs - probs.detach()
+        return sample
+
+
+class DiscDist:
+    def __init__(
+        self,
+        logits,
+        low=-20.0,
+        high=20.0,
+        transfwd=symlog,
+        transbwd=symexp,
+        device="cuda",
+    ):
+        self.logits = logits
+        self.probs = torch.softmax(logits, -1)
+        self.buckets = torch.linspace(low, high, steps=255).to(device)
+        self.width = (self.buckets[-1] - self.buckets[0]) / 255
+        self.transfwd = transfwd
