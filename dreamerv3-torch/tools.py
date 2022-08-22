@@ -503,3 +503,139 @@ class DiscDist:
         self.buckets = torch.linspace(low, high, steps=255).to(device)
         self.width = (self.buckets[-1] - self.buckets[0]) / 255
         self.transfwd = transfwd
+        self.transbwd = transbwd
+
+    def mean(self):
+        _mean = self.probs * self.buckets
+        return self.transbwd(torch.sum(_mean, dim=-1, keepdim=True))
+
+    def mode(self):
+        _mode = self.probs * self.buckets
+        return self.transbwd(torch.sum(_mode, dim=-1, keepdim=True))
+
+    # Inside OneHotCategorical, log_prob is calculated using only max element in targets
+    def log_prob(self, x):
+        x = self.transfwd(x)
+        # x(time, batch, 1)
+        below = torch.sum((self.buckets <= x[..., None]).to(torch.int32), dim=-1) - 1
+        above = len(self.buckets) - torch.sum(
+            (self.buckets > x[..., None]).to(torch.int32), dim=-1
+        )
+        below = torch.clip(below, 0, len(self.buckets) - 1)
+        above = torch.clip(above, 0, len(self.buckets) - 1)
+        equal = below == above
+
+        dist_to_below = torch.where(equal, 1, torch.abs(self.buckets[below] - x))
+        dist_to_above = torch.where(equal, 1, torch.abs(self.buckets[above] - x))
+        total = dist_to_below + dist_to_above
+        weight_below = dist_to_above / total
+        weight_above = dist_to_below / total
+        target = (
+            F.one_hot(below, num_classes=len(self.buckets)) * weight_below[..., None]
+            + F.one_hot(above, num_classes=len(self.buckets)) * weight_above[..., None]
+        )
+        log_pred = self.logits - torch.logsumexp(self.logits, -1, keepdim=True)
+        target = target.squeeze(-2)
+
+        return (target * log_pred).sum(-1)
+
+    def log_prob_target(self, target):
+        log_pred = super().logits - torch.logsumexp(super().logits, -1, keepdim=True)
+        return (target * log_pred).sum(-1)
+
+
+class MSEDist:
+    def __init__(self, mode, agg="sum"):
+        self._mode = mode
+        self._agg = agg
+
+    def mode(self):
+        return self._mode
+
+    def mean(self):
+        return self._mode
+
+    def log_prob(self, value):
+        assert self._mode.shape == value.shape, (self._mode.shape, value.shape)
+        distance = (self._mode - value) ** 2
+        if self._agg == "mean":
+            loss = distance.mean(list(range(len(distance.shape)))[2:])
+        elif self._agg == "sum":
+            loss = distance.sum(list(range(len(distance.shape)))[2:])
+        else:
+            raise NotImplementedError(self._agg)
+        return -loss
+
+
+class SymlogDist:
+    def __init__(self, mode, dist="mse", agg="sum", tol=1e-8):
+        self._mode = mode
+        self._dist = dist
+        self._agg = agg
+        self._tol = tol
+
+    def mode(self):
+        return symexp(self._mode)
+
+    def mean(self):
+        return symexp(self._mode)
+
+    def log_prob(self, value):
+        assert self._mode.shape == value.shape
+        if self._dist == "mse":
+            distance = (self._mode - symlog(value)) ** 2.0
+            distance = torch.where(distance < self._tol, 0, distance)
+        elif self._dist == "abs":
+            distance = torch.abs(self._mode - symlog(value))
+            distance = torch.where(distance < self._tol, 0, distance)
+        else:
+            raise NotImplementedError(self._dist)
+        if self._agg == "mean":
+            loss = distance.mean(list(range(len(distance.shape)))[2:])
+        elif self._agg == "sum":
+            loss = distance.sum(list(range(len(distance.shape)))[2:])
+        else:
+            raise NotImplementedError(self._agg)
+        return -loss
+
+
+class ContDist:
+    def __init__(self, dist=None):
+        super().__init__()
+        self._dist = dist
+        self.mean = dist.mean
+
+    def __getattr__(self, name):
+        return getattr(self._dist, name)
+
+    def entropy(self):
+        return self._dist.entropy()
+
+    def mode(self):
+        return self._dist.mean
+
+    def sample(self, sample_shape=()):
+        return self._dist.rsample(sample_shape)
+
+    def log_prob(self, x):
+        return self._dist.log_prob(x)
+
+
+class Bernoulli:
+    def __init__(self, dist=None):
+        super().__init__()
+        self._dist = dist
+        self.mean = dist.mean
+
+    def __getattr__(self, name):
+        return getattr(self._dist, name)
+
+    def entropy(self):
+        return self._dist.entropy()
+
+    def mode(self):
+        _mode = torch.round(self._dist.mean)
+        return _mode.detach() + self._dist.mean - self._dist.mean.detach()
+
+    def sample(self, sample_shape=()):
+        return self._dist.rsample(sample_shape)
