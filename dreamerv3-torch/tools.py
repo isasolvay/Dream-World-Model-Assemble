@@ -899,3 +899,126 @@ def static_scan(fn, inputs, start):
 #      _res = faster_stack(_res, 0)
 #    res[i] = _res
 #  return res
+
+
+class Every:
+    def __init__(self, every):
+        self._every = every
+        self._last = None
+
+    def __call__(self, step):
+        if not self._every:
+            return 0
+        if self._last is None:
+            self._last = step
+            return 1
+        count = int((step - self._last) / self._every)
+        self._last += self._every * count
+        return count
+
+
+class Once:
+    def __init__(self):
+        self._once = True
+
+    def __call__(self):
+        if self._once:
+            self._once = False
+            return True
+        return False
+
+
+class Until:
+    def __init__(self, until):
+        self._until = until
+
+    def __call__(self, step):
+        if not self._until:
+            return True
+        return step < self._until
+
+
+def schedule(string, step):
+    try:
+        return float(string)
+    except ValueError:
+        match = re.match(r"linear\((.+),(.+),(.+)\)", string)
+        if match:
+            initial, final, duration = [float(group) for group in match.groups()]
+            mix = torch.clip(torch.Tensor([step / duration]), 0, 1)[0]
+            return (1 - mix) * initial + mix * final
+        match = re.match(r"warmup\((.+),(.+)\)", string)
+        if match:
+            warmup, value = [float(group) for group in match.groups()]
+            scale = torch.clip(step / warmup, 0, 1)
+            return scale * value
+        match = re.match(r"exp\((.+),(.+),(.+)\)", string)
+        if match:
+            initial, final, halflife = [float(group) for group in match.groups()]
+            return (initial - final) * 0.5 ** (step / halflife) + final
+        match = re.match(r"horizon\((.+),(.+),(.+)\)", string)
+        if match:
+            initial, final, duration = [float(group) for group in match.groups()]
+            mix = torch.clip(step / duration, 0, 1)
+            horizon = (1 - mix) * initial + mix * final
+            return 1 - 1 / horizon
+        raise NotImplementedError(string)
+
+
+def weight_init(m):
+    if isinstance(m, nn.Linear):
+        in_num = m.in_features
+        out_num = m.out_features
+        denoms = (in_num + out_num) / 2.0
+        scale = 1.0 / denoms
+        std = np.sqrt(scale) / 0.87962566103423978
+        nn.init.trunc_normal_(
+            m.weight.data, mean=0.0, std=std, a=-2.0 * std, b=2.0 * std
+        )
+        if hasattr(m.bias, "data"):
+            m.bias.data.fill_(0.0)
+    elif isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d):
+        space = m.kernel_size[0] * m.kernel_size[1]
+        in_num = space * m.in_channels
+        out_num = space * m.out_channels
+        denoms = (in_num + out_num) / 2.0
+        scale = 1.0 / denoms
+        std = np.sqrt(scale) / 0.87962566103423978
+        nn.init.trunc_normal_(m.weight.data, mean=0.0, std=std, a=-2.0, b=2.0)
+        if hasattr(m.bias, "data"):
+            m.bias.data.fill_(0.0)
+    elif isinstance(m, nn.LayerNorm):
+        m.weight.data.fill_(1.0)
+        if hasattr(m.bias, "data"):
+            m.bias.data.fill_(0.0)
+
+
+def uniform_weight_init(given_scale):
+    def f(m):
+        if isinstance(m, nn.Linear):
+            in_num = m.in_features
+            out_num = m.out_features
+            denoms = (in_num + out_num) / 2.0
+            scale = given_scale / denoms
+            limit = np.sqrt(3 * scale)
+            nn.init.uniform_(m.weight.data, a=-limit, b=limit)
+            if hasattr(m.bias, "data"):
+                m.bias.data.fill_(0.0)
+        elif isinstance(m, nn.LayerNorm):
+            m.weight.data.fill_(1.0)
+            if hasattr(m.bias, "data"):
+                m.bias.data.fill_(0.0)
+
+    return f
+
+
+def tensorstats(tensor, prefix=None):
+    metrics = {
+        "mean": to_np(torch.mean(tensor)),
+        "std": to_np(torch.std(tensor)),
+        "min": to_np(torch.min(tensor)),
+        "max": to_np(torch.max(tensor)),
+    }
+    if prefix:
+        metrics = {f"{prefix}_{k}": v for k, v in metrics.items()}
+    return metrics
