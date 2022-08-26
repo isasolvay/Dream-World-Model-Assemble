@@ -257,3 +257,98 @@ def main(conf,
 
             if repo == repository:
                 # Only count steps in the training repo, so that prefill and limit_step_ratio works correctly
+                steps_saved += datas_steps
+
+    info('Generator done.')
+
+
+def create_policy(policy_type: str, env, model_conf,input_dirs):
+    if policy_type == 'network':
+        conf = model_conf
+        if conf.model == 'dreamer':
+            data_train_stats = DataSequential(MlflowEpisodeRepository(input_dirs), conf.batch_length, conf.batch_size, check_nonempty=False)
+            current_steps=data_train_stats.stats_steps
+            obs_space=env.observation_space
+            act_space=env.action_space
+            ## xch:step is useless when interacting with enviroment. It is only useful when training
+            model = Dreamer_agent(conf,obs_space,act_space,current_steps,device='cpu')
+        else:
+            assert False, conf.model
+        preprocess = Preprocessor(image_categorical=conf.image_channels if conf.image_categorical else None,
+                                  image_key=conf.image_key,
+                                  map_categorical=conf.map_channels if conf.map_categorical else None,
+                                  map_key=conf.map_key,
+                                  action_dim=env.action_size,  # type: ignore
+                                  clip_rewards=conf.clip_rewards)
+        return NetworkPolicy(model, preprocess)
+
+    if policy_type == 'random':
+        return RandomPolicy(env.action_space)
+
+    if policy_type == 'minigrid_wander':
+        from pydreamer.envs.minigrid import MinigridWanderPolicy
+        return MinigridWanderPolicy()
+
+    if policy_type == 'maze_bouncing_ball':
+        from pydreamer.envs.miniworld import MazeBouncingBallPolicy
+        return MazeBouncingBallPolicy()
+
+    if policy_type == 'maze_dijkstra':
+        from pydreamer.envs.miniworld import MazeDijkstraPolicy
+        step_size = env.params.params['forward_step'].default / env.room_size  # type: ignore
+        turn_size = env.params.params['turn_step'].default  # type: ignore
+        return MazeDijkstraPolicy(step_size, turn_size)
+
+    if policy_type == 'goal_dijkstra':
+        from pydreamer.envs.miniworld import MazeDijkstraPolicy
+        step_size = env.params.params['forward_step'].default / env.room_size  # type: ignore
+        turn_size = env.params.params['turn_step'].default  # type: ignore
+        return MazeDijkstraPolicy(step_size, turn_size, goal_strategy='goal_direction', random_prob=0)
+
+    raise ValueError(policy_type)
+
+
+class RandomPolicy:
+    def __init__(self, action_space):
+        self.action_space = action_space
+
+    def __call__(self, obs) -> Tuple[int, dict]:
+        return self.action_space.sample(), {}
+
+
+class NetworkPolicy:
+    def __init__(self, model: Dreamer_agent, preprocess: Preprocessor):
+        self.model = model
+        self.preprocess = preprocess
+        self.state = model.init_state(1)
+
+    def __call__(self, obs) -> Tuple[np.ndarray, dict]:
+        batch = self.preprocess.apply(obs, expandTB=True)
+        obs_model: Dict[str, Tensor] = map_structure(batch, torch.from_numpy)  # type: ignore
+
+        with torch.no_grad():
+            #这里给出了数据的来源。
+            action_distr, new_state, metrics = self.model.inference(obs_model, self.state)
+            action = action_distr.sample()
+            self.state = new_state
+
+        metrics = {k: v.item() for k, v in metrics.items()}
+        metrics.update(action_prob=action_distr.log_prob(action).exp().mean().item(),
+                       policy_entropy=action_distr.entropy().mean().item())
+
+        action = action.squeeze()  # (1,1,A) => A
+        return action.numpy(), metrics
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--env_id', type=str, required=True)
+    parser.add_argument('--policy_main', type=str, required=True)
+    parser.add_argument('--save_uri', type=str, default='')
+    parser.add_argument('--num_steps', type=int, default=1_000_000)
+    parser.add_argument('--worker_id', type=int, default=0)
+    parser.add_argument('--env_time_limit', type=int, default=0)
+    parser.add_argument('--env_action_repeat', type=int, default=1)
+    parser.add_argument('--steps_per_npz', type=int, default=1000)
+    args = parser.parse_args()
+    main(**vars(args))
