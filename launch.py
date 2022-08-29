@@ -16,4 +16,8 @@ from pydreamer.tools import (configure_logging, mlflow_log_params,mlflow_log_tex
 from pydreamer import envs
 from pydreamer.envs.__init__ import create_env
 
-os.environ
+os.environ["MUJOCO_GL"]='egl'
+def launch():
+    configure_logging('[launcher]')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--configs', 
