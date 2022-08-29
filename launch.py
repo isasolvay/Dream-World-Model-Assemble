@@ -20,4 +20,10 @@ os.environ["MUJOCO_GL"]='egl'
 def launch():
     configure_logging('[launcher]')
     parser = argparse.ArgumentParser()
-    parser.add_argument('--configs', 
+    parser.add_argument('--configs', nargs='+', required=True)
+    args, remaining = parser.parse_known_args()
+
+    # Config from YAML
+
+    conf = {}
+    
