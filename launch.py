@@ -30,4 +30,10 @@ def launch():
     for name in args.configs:
         if ',' in name:
             for n in name.split(','):
-                c
+                conf.update(configs[n])
+        else:
+            conf.update(configs[name])
+
+    # Override config from command-line
+
+    parser = argparse
