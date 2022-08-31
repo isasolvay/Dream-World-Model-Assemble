@@ -26,4 +26,8 @@ def launch():
     # Config from YAML
 
     conf = {}
-    
+    configs = read_yamls('./config')
+    for name in args.configs:
+        if ',' in name:
+            for n in name.split(','):
+                c
