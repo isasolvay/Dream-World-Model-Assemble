@@ -36,4 +36,7 @@ def launch():
 
     # Override config from command-line
 
-    parser = argparse
+    parser = argparse.ArgumentParser()
+    for key, value in conf.items():
+        type_ = type(value) if value is not None else str
+        if type_ == bool:
