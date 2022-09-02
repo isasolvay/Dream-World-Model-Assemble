@@ -40,3 +40,6 @@ def launch():
     for key, value in conf.items():
         type_ = type(value) if value is not None else str
         if type_ == bool:
+            type_ = lambda x: bool(strtobool(x))
+        parser.add_argument(f'--{key}', type=type_, default=value)
+    conf = pars
