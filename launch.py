@@ -42,4 +42,9 @@ def launch():
         if type_ == bool:
             type_ = lambda x: bool(strtobool(x))
         parser.add_argument(f'--{key}', type=type_, default=value)
-    conf = pars
+    conf = parser.parse_args(remaining)
+
+    # Mlflow
+
+    worker_type, worker_index = get_worker_info()
+    is_main_worker = worker_type is None or w
