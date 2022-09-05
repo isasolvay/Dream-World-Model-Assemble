@@ -50,4 +50,7 @@ def launch():
     is_main_worker = worker_type is None or worker_type == 'learner'
     mlrun = mlflow_init(wait_for_resume=not is_main_worker)
     artifact_uri = mlrun.info.artifact_uri
-    mlflow_log_params(vars(c
+    mlflow_log_params(vars(conf))
+    
+    # What env do you want? Basic env-info
+    obs_space,act_space= create_env(conf.env_id, conf.env_no_terminal, conf.
