@@ -53,4 +53,7 @@ def launch():
     mlflow_log_params(vars(conf))
     
     # What env do you want? Basic env-info
-    obs_space,act_space= create_env(conf.env_id, conf.env_no_terminal, conf.
+    obs_space,act_space= create_env(conf.env_id, conf.env_no_terminal, conf.env_time_limit, conf.env_action_repeat, 0,conf=conf,info_only=True)
+    space={}
+    space["obs"]=obs_space
+    space["act"]=act_spac
