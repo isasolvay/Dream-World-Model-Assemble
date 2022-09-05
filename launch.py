@@ -47,4 +47,7 @@ def launch():
     # Mlflow
 
     worker_type, worker_index = get_worker_info()
-    is_main_worker = worker_type is None or w
+    is_main_worker = worker_type is None or worker_type == 'learner'
+    mlrun = mlflow_init(wait_for_resume=not is_main_worker)
+    artifact_uri = mlrun.info.artifact_uri
+    mlflow_log_params(vars(c
