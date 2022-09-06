@@ -56,4 +56,10 @@ def launch():
     obs_space,act_space= create_env(conf.env_id, conf.env_no_terminal, conf.env_time_limit, conf.env_action_repeat, 0,conf=conf,info_only=True)
     space={}
     space["obs"]=obs_space
-    space["act"]=act_spac
+    space["act"]=act_space
+    
+    # To know the num of steps, generator should know Data directories
+
+    if conf.offline_data_dir:
+        online_data = False
+    
