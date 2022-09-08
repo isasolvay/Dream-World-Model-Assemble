@@ -68,4 +68,10 @@ def launch():
         input_dirs = [
             f'{artifact_uri}/episodes/{i}'
             for i in range(max(conf.generator_workers_train, conf.generator_workers))
-       
+        ]
+    
+    if conf.offline_prefill_dir:
+        input_dirs.extend(to_list(conf.offline_prefill_dir))
+
+    # if conf.offline_eval_dir:
+    #     eval_di
