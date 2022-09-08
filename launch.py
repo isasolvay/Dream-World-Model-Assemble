@@ -66,4 +66,6 @@ def launch():
     else:
         online_data = True
         input_dirs = [
-            
+            f'{artifact_uri}/episodes/{i}'
+            for i in range(max(conf.generator_workers_train, conf.generator_workers))
+       
