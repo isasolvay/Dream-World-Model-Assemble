@@ -62,4 +62,8 @@ def launch():
 
     if conf.offline_data_dir:
         online_data = False
-    
+        input_dirs = to_list(conf.offline_data_dir)
+    else:
+        online_data = True
+        input_dirs = [
+            
