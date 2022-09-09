@@ -82,4 +82,11 @@ def launch():
     #     ]
 
     # if conf.offline_test_dir:
-    #     test
+    #     test_dirs = to_list(conf.offline_test_dir)
+    # else:
+    #     test_dirs = eval_dirs
+        
+    
+    
+    # Launch train+eval generators
+    ## I don't k
