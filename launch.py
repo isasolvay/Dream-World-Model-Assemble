@@ -78,4 +78,8 @@ def launch():
     # else:
     #     eval_dirs = [
     #         f'{artifact_uri}/episodes_eval/{i}'
-    #         for i in range(max(co
+    #         for i in range(max(conf.generator_workers_eval, conf.generator_workers))
+    #     ]
+
+    # if conf.offline_test_dir:
+    #     test
