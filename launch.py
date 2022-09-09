@@ -74,4 +74,8 @@ def launch():
         input_dirs.extend(to_list(conf.offline_prefill_dir))
 
     # if conf.offline_eval_dir:
-    #     eval_di
+    #     eval_dirs = to_list(conf.offline_eval_dir)
+    # else:
+    #     eval_dirs = [
+    #         f'{artifact_uri}/episodes_eval/{i}'
+    #         for i in range(max(co
