@@ -95,4 +95,9 @@ def launch():
     for i in range(conf.generator_workers):
         print('--------generator number--------------')
         print(conf.generator_workers)
-        if belongs_to_worker('genera
+        if belongs_to_worker('generator', i):
+            info(f'Launching train+eval generator {i}')
+            p = launch_generator(
+                conf.env_id,
+                conf,
+       
