@@ -92,4 +92,7 @@ def launch():
     ## I don't know why, but we should do it by hand
     # conf.generator_workers=1
     subprocesses: List[Process] = []
-    for i in range(conf.generator_worke
+    for i in range(conf.generator_workers):
+        print('--------generator number--------------')
+        print(conf.generator_workers)
+        if belongs_to_worker('genera
