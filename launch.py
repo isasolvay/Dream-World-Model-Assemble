@@ -100,4 +100,6 @@ def launch():
             p = launch_generator(
                 conf.env_id,
                 conf,
-       
+                save_uri=f'{artifact_uri}/episodes/{i}',
+                save_uri2=f'{artifact_uri}/episodes_eval/{i}',
+      
