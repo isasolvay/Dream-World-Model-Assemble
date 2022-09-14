@@ -103,4 +103,7 @@ def launch():
                 save_uri=f'{artifact_uri}/episodes/{i}',
                 save_uri2=f'{artifact_uri}/episodes_eval/{i}',
                 num_steps=conf.n_env_steps // conf.env_action_repeat // conf.generator_workers,
-                limit_step_ratio=conf.limit_step
+                limit_step_ratio=conf.limit_step_ratio / conf.generator_workers,
+                worker_id=i,
+                policy_main='network',
+                policy_prefill
