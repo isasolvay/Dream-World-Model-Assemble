@@ -106,4 +106,6 @@ def launch():
                 limit_step_ratio=conf.limit_step_ratio / conf.generator_workers,
                 worker_id=i,
                 policy_main='network',
-                policy_prefill
+                policy_prefill=conf.generator_prefill_policy,
+                num_steps_prefill=conf.generator_prefill_steps // conf.generator_workers,
+         
