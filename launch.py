@@ -108,4 +108,9 @@ def launch():
                 policy_main='network',
                 policy_prefill=conf.generator_prefill_policy,
                 num_steps_prefill=conf.generator_prefill_steps // conf.generator_workers,
-         
+                split_fraction=0.05,
+                input_dirs=input_dirs,
+            )
+            subprocesses.append(p)
+
+    # Launch
