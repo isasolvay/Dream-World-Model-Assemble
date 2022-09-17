@@ -113,4 +113,8 @@ def launch():
             )
             subprocesses.append(p)
 
-    # Launch
+    # Launch train generators
+
+    for i in range(conf.generator_workers_train):
+        if belongs_to_worker('generator_train', i):
+            info(f'Launchi
