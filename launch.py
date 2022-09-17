@@ -121,4 +121,6 @@ def launch():
             p = launch_generator(
                 conf.env_id,
                 conf,
-                f'{artifact_uri}
+                f'{artifact_uri}/episodes/{i}',
+                num_steps=conf.n_env_steps // conf.env_action_repeat // conf.generator_workers,
+                lim
