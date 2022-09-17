@@ -117,4 +117,8 @@ def launch():
 
     for i in range(conf.generator_workers_train):
         if belongs_to_worker('generator_train', i):
-            info(f'Launchi
+            info(f'Launching train generator {i}')
+            p = launch_generator(
+                conf.env_id,
+                conf,
+                f'{artifact_uri}
