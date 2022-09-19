@@ -123,4 +123,6 @@ def launch():
                 conf,
                 f'{artifact_uri}/episodes/{i}',
                 num_steps=conf.n_env_steps // conf.env_action_repeat // conf.generator_workers,
-                lim
+                limit_step_ratio=conf.limit_step_ratio / conf.generator_workers,
+                worker_id=i,
+                policy_main
