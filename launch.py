@@ -125,4 +125,6 @@ def launch():
                 num_steps=conf.n_env_steps // conf.env_action_repeat // conf.generator_workers,
                 limit_step_ratio=conf.limit_step_ratio / conf.generator_workers,
                 worker_id=i,
-                policy_main
+                policy_main='network',
+                policy_prefill=conf.generator_prefill_policy,
+                num_steps_prefill=conf.generator_prefill_steps // conf.gener
