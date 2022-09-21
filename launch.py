@@ -140,4 +140,10 @@ def launch():
                 conf.env_id_eval or conf.env_id,
                 conf,
                 f'{artifact_uri}/episodes_eval/{i}',
-                worker_id=conf.generator_worke
+                worker_id=conf.generator_workers + i,
+                policy_main='network',
+                metrics_prefix='agent_eval'
+            )
+            subprocesses.append(p)
+
+ 
