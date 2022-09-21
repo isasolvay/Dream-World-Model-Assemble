@@ -134,4 +134,7 @@ def launch():
     # Launch eval generators
 
     for i in range(conf.generator_workers_eval):
-      
+        if belongs_to_worker('generator_eval', i):
+            info(f'Launching eval generator {i}')
+            p = launch_generator(
+                conf.env
