@@ -127,4 +127,11 @@ def launch():
                 worker_id=i,
                 policy_main='network',
                 policy_prefill=conf.generator_prefill_policy,
-                num_steps_prefill=conf.generator_prefill_steps // conf.gener
+                num_steps_prefill=conf.generator_prefill_steps // conf.generator_workers,
+            )
+            subprocesses.append(p)
+
+    # Launch eval generators
+
+    for i in range(conf.generator_workers_eval):
+      
