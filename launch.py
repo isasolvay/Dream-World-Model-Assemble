@@ -137,4 +137,7 @@ def launch():
         if belongs_to_worker('generator_eval', i):
             info(f'Launching eval generator {i}')
             p = launch_generator(
-                conf.env
+                conf.env_id_eval or conf.env_id,
+                conf,
+                f'{artifact_uri}/episodes_eval/{i}',
+                worker_id=conf.generator_worke
