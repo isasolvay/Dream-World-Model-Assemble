@@ -146,4 +146,9 @@ def launch():
             )
             subprocesses.append(p)
 
- 
+    # Launch learner
+
+    if belongs_to_worker('learner', 0):
+        info('Launching learner')
+        p = launch_learner(conf,space)
+        subpro
