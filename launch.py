@@ -151,4 +151,11 @@ def launch():
     if belongs_to_worker('learner', 0):
         info('Launching learner')
         p = launch_learner(conf,space)
-        subpro
+        subprocesses.append(p)
+
+    # Wait & watch
+
+    try:
+        while len(subprocesses) > 0:
+            check_subprocesses(subprocesses)
+  
