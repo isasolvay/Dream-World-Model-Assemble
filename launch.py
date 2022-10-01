@@ -164,4 +164,10 @@ def launch():
             p.kill()  # Non-daemon processes (learner) need to be killed
 
 
-def l
+def launch_learner(conf,space):
+    p = Process(target=train.run, daemon=False, args=[conf,space])
+    p.start()
+    return p
+
+
+def launch_generator
