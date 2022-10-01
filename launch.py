@@ -158,4 +158,10 @@ def launch():
     try:
         while len(subprocesses) > 0:
             check_subprocesses(subprocesses)
-  
+            time.sleep(1)
+    finally:
+        for p in subprocesses:
+            p.kill()  # Non-daemon processes (learner) need to be killed
+
+
+def l
