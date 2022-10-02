@@ -170,4 +170,9 @@ def launch_learner(conf,space):
     return p
 
 
-def launch_generator
+def launch_generator(env_id,
+                     conf,
+                     save_uri,
+                     save_uri2=None,
+                     policy_main='network',
+         
