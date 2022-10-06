@@ -182,4 +182,7 @@ def launch_generator(env_id,
                      limit_step_ratio=0,
                      split_fraction=0.0,
                      metrics_prefix='agent',
-                     l
+                     log_mlflow_metrics=True,
+                     input_dirs=None,
+                     ):
+    p = Process(target=generator.main,
