@@ -175,4 +175,8 @@ def launch_generator(env_id,
                      save_uri,
                      save_uri2=None,
                      policy_main='network',
-         
+                     policy_prefill='random',
+                     worker_id=0,
+                     num_steps=int(1e9),
+                     num_steps_prefill=0,
+ 
