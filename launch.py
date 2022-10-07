@@ -193,3 +193,5 @@ def launch_generator(env_id,
                     save_uri=save_uri,
                     save_uri2=save_uri2,
                     env_time_limit=conf.env_time_limit,
+                    env_action_repeat=conf.env_action_repeat,
+                    env_no_terminal=conf.env_no_te
