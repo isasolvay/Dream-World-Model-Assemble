@@ -189,4 +189,7 @@ def launch_generator(env_id,
                 daemon=True,
                 kwargs=dict(
                     conf=conf,
-                    env_id=e
+                    env_id=env_id,
+                    save_uri=save_uri,
+                    save_uri2=save_uri2,
+                    env_time_limit=conf.env_time_limit,
