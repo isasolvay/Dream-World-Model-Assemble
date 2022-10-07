@@ -186,3 +186,7 @@ def launch_generator(env_id,
                      input_dirs=None,
                      ):
     p = Process(target=generator.main,
+                daemon=True,
+                kwargs=dict(
+                    conf=conf,
+                    env_id=e
