@@ -197,4 +197,7 @@ def launch_generator(env_id,
                     env_no_terminal=conf.env_no_terminal,
                     limit_step_ratio=limit_step_ratio,
                     policy_main=policy_main,
-                   
+                    policy_prefill=policy_prefill,
+                    num_steps=num_steps,
+                    num_steps_prefill=num_steps_prefill,
+              
