@@ -200,4 +200,7 @@ def launch_generator(env_id,
                     policy_prefill=policy_prefill,
                     num_steps=num_steps,
                     num_steps_prefill=num_steps_prefill,
-              
+                    worker_id=worker_id,
+                    model_conf=conf,
+                    log_mlflow_metrics=log_mlflow_metrics,
+         
