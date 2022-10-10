@@ -194,4 +194,7 @@ def launch_generator(env_id,
                     save_uri2=save_uri2,
                     env_time_limit=conf.env_time_limit,
                     env_action_repeat=conf.env_action_repeat,
-                    env_no_terminal=conf.env_no_te
+                    env_no_terminal=conf.env_no_terminal,
+                    limit_step_ratio=limit_step_ratio,
+                    policy_main=policy_main,
+                   
