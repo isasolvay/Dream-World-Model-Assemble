@@ -203,4 +203,7 @@ def launch_generator(env_id,
                     worker_id=worker_id,
                     model_conf=conf,
                     log_mlflow_metrics=log_mlflow_metrics,
-         
+                    split_fraction=split_fraction,
+                    metrics_prefix=metrics_prefix,
+                    metrics_gamma=conf.discount,
+                
