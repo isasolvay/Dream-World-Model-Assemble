@@ -214,4 +214,7 @@ def launch_generator(env_id,
 
 def check_subprocesses(subprocesses):
     subp_finished = []
- 
+    for p in subprocesses:
+        if not p.is_alive():
+            if p.exitcode == 0:
+                subp_finished.append
