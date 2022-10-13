@@ -217,4 +217,7 @@ def check_subprocesses(subprocesses):
     for p in subprocesses:
         if not p.is_alive():
             if p.exitcode == 0:
-                subp_finished.append
+                subp_finished.append(p)
+                info(f'Generator process {p.pid} finished')
+            else:
+                raise Exception(f'Generator process {p.pid} die
