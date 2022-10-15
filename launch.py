@@ -225,4 +225,7 @@ def check_subprocesses(subprocesses):
         subprocesses.remove(p)
 
 
-def belongs_to_worker(work_type, 
+def belongs_to_worker(work_type, work_index):
+    """
+    In case of distributed workers, checks if this work should execute on this worker.
+    If not dist
