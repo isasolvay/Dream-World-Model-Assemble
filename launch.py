@@ -233,4 +233,12 @@ def belongs_to_worker(work_type, work_index):
     worker_type, worker_index = get_worker_info()
     return (
         (worker_type is None or worker_type == work_type) and
-       
+        (worker_index is None or worker_index == work_index)
+    )
+
+
+def get_worker_info():
+    worker_type = None
+    worker_index = None
+
+    if '
