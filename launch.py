@@ -228,4 +228,9 @@ def check_subprocesses(subprocesses):
 def belongs_to_worker(work_type, work_index):
     """
     In case of distributed workers, checks if this work should execute on this worker.
-    If not dist
+    If not distributed, return True.
+    """
+    worker_type, worker_index = get_worker_info()
+    return (
+        (worker_type is None or worker_type == work_type) and
+       
