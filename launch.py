@@ -220,4 +220,9 @@ def check_subprocesses(subprocesses):
                 subp_finished.append(p)
                 info(f'Generator process {p.pid} finished')
             else:
-                raise Exception(f'Generator process {p.pid} die
+                raise Exception(f'Generator process {p.pid} died with exitcode {p.exitcode}')
+    for p in subp_finished:
+        subprocesses.remove(p)
+
+
+def belongs_to_worker(work_type, 
