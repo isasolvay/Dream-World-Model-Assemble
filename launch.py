@@ -246,4 +246,6 @@ def get_worker_info():
         tf_config = json.loads(os.environ['TF_CONFIG'])
         print_once('TF_CONFIG is set:', tf_config)
         if tf_config['cluster'].get('worker'):
-       
+            # If there are workers in the cluster, then it's a distributed run
+            worker_type = {
+                
