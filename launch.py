@@ -241,4 +241,6 @@ def get_worker_info():
     worker_type = None
     worker_index = None
 
-    if '
+    if 'TF_CONFIG' in os.environ:
+        # TF_CONFIG indicates Google Vertex AI run
+        tf_config = json.loads(os.environ
