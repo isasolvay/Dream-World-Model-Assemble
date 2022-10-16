@@ -243,4 +243,7 @@ def get_worker_info():
 
     if 'TF_CONFIG' in os.environ:
         # TF_CONFIG indicates Google Vertex AI run
-        tf_config = json.loads(os.environ
+        tf_config = json.loads(os.environ['TF_CONFIG'])
+        print_once('TF_CONFIG is set:', tf_config)
+        if tf_config['cluster'].get('worker'):
+       
