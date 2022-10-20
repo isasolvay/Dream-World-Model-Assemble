@@ -254,4 +254,8 @@ def get_worker_info():
             worker_index = int(tf_config['task']['index'])
             print_once('Distributed run detected, current worker is:', f'{worker_type} ({worker_index})')
 
-    return worker_ty
+    return worker_type, worker_index
+
+
+if __name__ == '__main__':
+    launch()
