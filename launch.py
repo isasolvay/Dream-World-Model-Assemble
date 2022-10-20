@@ -251,4 +251,7 @@ def get_worker_info():
                 'chief': 'learner',
                 'worker': 'generator',
             }[str(tf_config['task']['type'])]
-            worker_index = int(tf_confi
+            worker_index = int(tf_config['task']['index'])
+            print_once('Distributed run detected, current worker is:', f'{worker_type} ({worker_index})')
+
+    return worker_ty
