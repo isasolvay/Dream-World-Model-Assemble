@@ -196,3 +196,114 @@ class DataSequential(IterableDataset):
 
         for file in self.iter_shuffled_files():
             if last_partial_batch:
+                first_shorter_length = self.batch_length - lenb(last_partial_batch)
+            else:
+                first_shorter_length = None
+
+            it = self.iter_file(file, self.batch_length, skip_random, first_shorter_length)
+
+            # Concatenate the last batch of previous file and the first batch of new file to make a
+            # full batch of length batch_size.
+            if last_partial_batch is not None:
+                for batch, partial in it:
+                    assert not partial, 'First batch must be full. Is episode_length < batch_size?'
+                    batch = cat_structure_np([last_partial_batch, batch])
+                    assert lenb(batch) == self.batch_length
+                    last_partial_batch = None
+                    yield batch
+                    break
+
+            for batch, partial in it:
+                if partial:
+                    if self.allow_mid_reset:
+                        last_partial_batch = batch
+                    else:
+                        # If no mid-reset, just ignore the partial batch, and next batch will be from beginning
+                        last_partial_batch = None
+                    break  # partial will always be last
+                yield batch
+
+            skip_random = False
+
+    def iter_file(self, file: FileInfo, batch_length, skip_random=False, first_shorter_length=None):
+        try:
+            with Timer(f'Reading {file}', verbose=False):
+                data = file.load_data()
+        except Exception as e:
+            print('Error reading file - skipping')
+            print(e)
+            return
+
+        # Undo the transformation for better compression
+        if 'image' not in data and 'image_t' in data:
+            data['image'] = data['image_t'].transpose(3, 0, 1, 2)  # HWCT => THWC
+            del data['image_t']
+
+        if 'map_centered' in data and data['map_centered'].dtype == np.float64:
+            assert False, 'Legacy, shouldnt happen anymore'  # TODO: remove
+            # data['map_centered'] = (data['map_centered'] * 255).clip(0, 255).astype(np.uint8)
+
+        # Add action_next (action[i] -> obs[i] -> action_next[i] -> obs[i+1])
+        data['action_next'] = np.concatenate([data['action'][1:], np.zeros_like(data['action'][:1])])  # last one is zero
+
+        n = lenb(data)
+        if n < batch_length:
+            print(f'Skipping too short file: {file}, len={n}')
+            return
+
+        if not 'reset' in data:
+            data['reset'] = np.zeros(n, bool)
+        data['reset'][0] = True  # File must start with reset
+        data['reward'][0] = 0.0  # ... and no rewards
+
+        i = 0 if not skip_random else np.random.randint(n - batch_length + 1)
+        l = first_shorter_length or batch_length
+
+        if self.reset_interval:
+            random_resets = self.randomize_resets(data['reset'], self.reset_interval, self.batch_length)
+        else:
+            random_resets = np.zeros_like(data['reset'])
+
+        while i < n:
+            batch = {key: data[key][i:i + l] for key in data}
+            if np.any(random_resets[i:i + l]):
+                # Random resets are generated at any step, but always reset in the beginning of the batch, for longer backprop
+                assert not np.any(batch['reset']), 'randomize_resets should not coincide with actual resets'
+                batch['reset'][0] = True
+            is_partial = lenb(batch) < l
+            i += l
+            l = batch_length
+            yield batch, is_partial
+
+    def iter_shuffled_files(self):
+        while True:
+            if self.should_reload_files():
+                self.reload_files()
+            f = np.random.choice(self.files)  # type: ignore
+            yield f
+
+    def randomize_resets(self, resets, reset_interval, batch_length):
+        assert resets[0]
+        ep_boundaries = np.where(resets)[0].tolist() + [len(resets)]
+
+        random_resets = np.zeros_like(resets)
+        for i in range(len(ep_boundaries) - 1):
+            ep_start = ep_boundaries[i]
+            ep_end = ep_boundaries[i + 1]
+            ep_steps = ep_end - ep_start
+
+            # Cut episode into a random number of intervals
+
+            max_intervals = (ep_steps // reset_interval) + 1
+            n_intervals = np.random.randint(1, max_intervals + 1)
+            i_boundaries = np.sort(np.random.choice(ep_steps - batch_length * n_intervals, n_intervals - 1))
+            i_boundaries = ep_start + i_boundaries + np.arange(1, n_intervals) * batch_length
+
+            random_resets[i_boundaries] = True
+            assert (resets | random_resets)[ep_start:ep_end].sum() == n_intervals
+
+        return random_resets
+
+
+def lenb(batch):
+    return batch['reward'].shape[0]
