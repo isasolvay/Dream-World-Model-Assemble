@@ -19,4 +19,8 @@ class Atari_v2(gym.Env):
                  life_done=False,
                  sticky_actions=True,
                  all_actions=True
- 
+                 ):
+        assert size[0] == size[1]
+        with self.LOCK:
+            env = gym.envs.atari.AtariEnv(
+               
