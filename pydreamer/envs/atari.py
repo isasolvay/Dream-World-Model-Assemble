@@ -14,4 +14,9 @@ class Atari_v2(gym.Env):
                  name,
                  action_repeat=4,
                  size=(64, 64),
-                 grayscale=False,  # DreamerV2 uses grayscale=Tr
+                 grayscale=False,  # DreamerV2 uses grayscale=True
+                 noops=30,
+                 life_done=False,
+                 sticky_actions=True,
+                 all_actions=True
+ 
