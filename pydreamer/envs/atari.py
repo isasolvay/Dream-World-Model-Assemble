@@ -23,4 +23,7 @@ class Atari_v2(gym.Env):
         assert size[0] == size[1]
         with self.LOCK:
             env = gym.envs.atari.AtariEnv(
-               
+                game=name,
+                obs_type='image',
+                frameskip=1,
+                repeat_action_probability=0.25 if sticky_actions e
