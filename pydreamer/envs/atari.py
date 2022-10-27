@@ -26,4 +26,7 @@ class Atari_v2(gym.Env):
                 game=name,
                 obs_type='image',
                 frameskip=1,
-                repeat_action_probability=0.25 if sticky_actions e
+                repeat_action_probability=0.25 if sticky_actions else 0.0,
+                full_action_space=all_actions)
+        # Avoid unnecessary rendering in inner env.
+        env.get_obs = lamb
