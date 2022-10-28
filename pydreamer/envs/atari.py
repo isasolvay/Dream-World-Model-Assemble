@@ -29,4 +29,6 @@ class Atari_v2(gym.Env):
                 repeat_action_probability=0.25 if sticky_actions else 0.0,
                 full_action_space=all_actions)
         # Avoid unnecessary rendering in inner env.
-        env.get_obs = lamb
+        env.get_obs = lambda: None  # type: ignore
+        # Tell wrapper that the inner env has no action repeat.
+        env.spec = gym.envs.registra
