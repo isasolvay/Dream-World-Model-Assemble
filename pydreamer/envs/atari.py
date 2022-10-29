@@ -38,4 +38,8 @@ class Atari_v2(gym.Env):
 
     @property
     def observation_space(self):
-        return gym.spaces.Dict({'ima
+        return gym.spaces.Dict({'image': self.env.observation_space})  # type: ignore
+
+    @property
+    def action_space(self):
+        return self.env.action_space
