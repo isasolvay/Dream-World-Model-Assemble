@@ -32,4 +32,10 @@ class Atari_v2(gym.Env):
         env.get_obs = lambda: None  # type: ignore
         # Tell wrapper that the inner env has no action repeat.
         env.spec = gym.envs.registration.EnvSpec('NoFrameskip-v0')  # type: ignore
-        env = gym.wrappers.AtariPreprocessing(env, noops, action_repeat, size[0], life_don
+        env = gym.wrappers.AtariPreprocessing(env, noops, action_repeat, size[0], life_done, grayscale)
+        self.env = env
+        self.grayscale = grayscale
+
+    @property
+    def observation_space(self):
+        return gym.spaces.Dict({'ima
