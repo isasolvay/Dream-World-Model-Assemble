@@ -31,4 +31,5 @@ class Atari_v2(gym.Env):
         # Avoid unnecessary rendering in inner env.
         env.get_obs = lambda: None  # type: ignore
         # Tell wrapper that the inner env has no action repeat.
-        env.spec = gym.envs.registra
+        env.spec = gym.envs.registration.EnvSpec('NoFrameskip-v0')  # type: ignore
+        env = gym.wrappers.AtariPreprocessing(env, noops, action_repeat, size[0], life_don
