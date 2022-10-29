@@ -43,3 +43,9 @@ class Atari_v2(gym.Env):
     @property
     def action_space(self):
         return self.env.action_space
+
+    def reset(self):
+        with self.LOCK:
+            image: np.ndarray = self.env.reset()  # type: ignore
+        if self.grayscale:
+  
