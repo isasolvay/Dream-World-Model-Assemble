@@ -56,4 +56,10 @@ class Atari_v2(gym.Env):
         image, reward, done, info = self.env.step(action)
         if self.grayscale:
             image = image[..., None]
-        obs = {'imag
+        obs = {'image': image}
+        return obs, reward, done, info
+
+    def render(self, mode):
+        return self.env.render(mode)
+    
+clas
