@@ -48,4 +48,9 @@ class Atari_v2(gym.Env):
         with self.LOCK:
             image: np.ndarray = self.env.reset()  # type: ignore
         if self.grayscale:
-  
+            image = image[..., None]
+        obs = {'image': image}
+        return obs
+
+    def step(self, action):
+        image, 
