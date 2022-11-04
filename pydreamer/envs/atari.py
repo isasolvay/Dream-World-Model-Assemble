@@ -76,4 +76,9 @@ class Atari_v3:
         lives="unused",
         sticky=True,
         actions="all",
-        l
+        length=108000,
+        resize="opencv",
+        seed=None,
+    ):
+        assert size[0] == size[1]
+        assert lives in ("unused", "discount", "reset"), lives
