@@ -62,4 +62,12 @@ class Atari_v2(gym.Env):
     def render(self, mode):
         return self.env.render(mode)
     
-clas
+class Atari_v3:
+    LOCK = None
+    metadata = {}
+
+    def __init__(
+        self,
+        name,
+        action_repeat=4,
+        
