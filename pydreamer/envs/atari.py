@@ -90,4 +90,9 @@ class Atari_v3:
             mp = mp.get_context("spawn")
             self.LOCK = mp.Lock()
         self._resize = resize
- 
+        if self._resize == "opencv":
+            import cv2
+
+            self._cv2 = cv2
+        if self._resize == "pillow":
+      
