@@ -85,4 +85,9 @@ class Atari_v3:
         assert actions in ("all", "needed"), actions
         assert resize in ("opencv", "pillow"), resize
         if self.LOCK is None:
-   
+            import multiprocessing as mp
+
+            mp = mp.get_context("spawn")
+            self.LOCK = mp.Lock()
+        self._resize = resize
+ 
