@@ -102,4 +102,8 @@ class Atari_v3:
 
         if name == "james_bond":
             name = "jamesbond"
-   
+        self._repeat = action_repeat
+        self._size = tuple(size)
+        self._gray = gray
+        self._noops = noops
+        self._l
