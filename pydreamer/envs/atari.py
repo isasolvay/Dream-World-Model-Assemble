@@ -95,4 +95,11 @@ class Atari_v3:
 
             self._cv2 = cv2
         if self._resize == "pillow":
-      
+            from PIL import Image
+
+            self._image = Image
+        import gym.envs.atari
+
+        if name == "james_bond":
+            name = "jamesbond"
+   
