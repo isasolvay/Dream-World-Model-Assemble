@@ -110,4 +110,8 @@ class Atari_v3:
         self._sticky = sticky
         self._length = length
         self._random = np.random.RandomState(seed)
-      
+        with self.LOCK:
+            self._env = gym.envs.atari.AtariEnv(
+                game=name,
+                obs_type="image",
+             
