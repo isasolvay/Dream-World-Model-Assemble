@@ -106,4 +106,8 @@ class Atari_v3:
         self._size = tuple(size)
         self._gray = gray
         self._noops = noops
-        self._l
+        self._lives = lives
+        self._sticky = sticky
+        self._length = length
+        self._random = np.random.RandomState(seed)
+      
