@@ -114,4 +114,6 @@ class Atari_v3:
             self._env = gym.envs.atari.AtariEnv(
                 game=name,
                 obs_type="image",
-             
+                frameskip=1,
+                repeat_action_probability=0.25 if sticky else 0.0,
+                full_action_space=(actions == 
