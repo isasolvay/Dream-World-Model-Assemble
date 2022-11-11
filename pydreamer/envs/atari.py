@@ -116,4 +116,7 @@ class Atari_v3:
                 obs_type="image",
                 frameskip=1,
                 repeat_action_probability=0.25 if sticky else 0.0,
-                full_action_space=(actions == 
+                full_action_space=(actions == "all"),
+            )
+        assert self._env.unwrapped.get_action_meanings()[0] == "NOOP"
+        shape = sel
