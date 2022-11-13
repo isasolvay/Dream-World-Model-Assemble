@@ -119,4 +119,6 @@ class Atari_v3:
                 full_action_space=(actions == "all"),
             )
         assert self._env.unwrapped.get_action_meanings()[0] == "NOOP"
-        shape = sel
+        shape = self._env.observation_space.shape
+        self._buffer = [np.zeros(shape, np.uint8) for _ in range(2)]
+        self._ale = self._env
