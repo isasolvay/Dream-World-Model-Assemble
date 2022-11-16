@@ -121,4 +121,8 @@ class Atari_v3:
         assert self._env.unwrapped.get_action_meanings()[0] == "NOOP"
         shape = self._env.observation_space.shape
         self._buffer = [np.zeros(shape, np.uint8) for _ in range(2)]
-        self._ale = self._env
+        self._ale = self._env.unwrapped.ale
+        self._last_lives = None
+        self._done = True
+        self._step = 0
+        self.reward_range = [-np.i
