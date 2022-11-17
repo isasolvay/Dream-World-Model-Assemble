@@ -130,4 +130,8 @@ class Atari_v3:
     @property
     def observation_space(self):
         img_shape = self._size + ((1,) if self._gray else (3,))
-        r
+        return gym.spaces.Dict(
+            {
+                "image": gym.spaces.Box(0, 255, img_shape, np.uint8),
+            }
+        )
