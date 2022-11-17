@@ -135,3 +135,11 @@ class Atari_v3:
                 "image": gym.spaces.Box(0, 255, img_shape, np.uint8),
             }
         )
+
+    @property
+    def action_space(self):
+        space = self._env.action_space
+        space.discrete = True
+        return space
+
+   
