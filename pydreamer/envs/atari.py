@@ -151,3 +151,7 @@ class Atari_v3:
         #   return self._obs(0.0, reset=True)
         total = 0.0
         dead = False
+        if not isinstance(action, int):
+            if len(action.shape) >= 1:
+                action = np.argmax(action)
+        
