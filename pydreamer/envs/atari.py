@@ -142,4 +142,8 @@ class Atari_v3:
         space.discrete = True
         return space
 
+    def step(self, action):
+        # if action['reset'] or self._done:
+        #   with self.LOCK:
+        #     self._reset()
    
