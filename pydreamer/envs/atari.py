@@ -157,4 +157,8 @@ class Atari_v3:
         for repeat in range(self._repeat):
             _, reward, over, info = self._env.step(action)
             self._step += 1
-            tot
+            total += reward
+            if repeat == self._repeat - 2:
+                self._screen(self._buffer[1])
+            if over:
+          
