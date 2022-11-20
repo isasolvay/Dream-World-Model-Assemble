@@ -169,4 +169,6 @@ class Atari_v3:
                     self._last_lives = current
                     break
         if not self._repeat:
-    
+            self._buffer[1][:] = self._buffer[0][:]
+        self._screen(self._buffer[0])
+        self._done = over or (se
