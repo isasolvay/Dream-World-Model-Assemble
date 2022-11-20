@@ -164,4 +164,9 @@ class Atari_v3:
                 break
             if self._lives != "unused":
                 current = self._ale.lives()
-                if current < self._last_lives
+                if current < self._last_lives:
+                    dead = True
+                    self._last_lives = current
+                    break
+        if not self._repeat:
+    
