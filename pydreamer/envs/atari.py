@@ -174,4 +174,10 @@ class Atari_v3:
         self._done = over or (self._length and self._step >= self._length)
         return self._obs(
             total,
-            is_last=self._done or (dead and self._liv
+            is_last=self._done or (dead and self._lives == "reset"),
+            terminal=dead or over,
+        )
+
+    def reset(self):
+        self._env.reset()
+        if self._n
