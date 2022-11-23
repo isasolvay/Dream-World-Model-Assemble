@@ -180,4 +180,7 @@ class Atari_v3:
 
     def reset(self):
         self._env.reset()
-        if self._n
+        if self._noops:
+            for _ in range(self._random.randint(self._noops)):
+                _, _, dead, _ = self._env.step(0)
+                if dead:
