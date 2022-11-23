@@ -187,4 +187,10 @@ class Atari_v3:
                     self._env.reset()
         self._last_lives = self._ale.lives()
         self._screen(self._buffer[0])
-        self._buffer[1].
+        self._buffer[1].fill(0)
+
+        self._done = False
+        self._step = 0
+        obs, reward, terminal, _ = self._obs(0.0, reset=True)
+        return obs
+
