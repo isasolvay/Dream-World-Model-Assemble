@@ -184,3 +184,7 @@ class Atari_v3:
             for _ in range(self._random.randint(self._noops)):
                 _, _, dead, _ = self._env.step(0)
                 if dead:
+                    self._env.reset()
+        self._last_lives = self._ale.lives()
+        self._screen(self._buffer[0])
+        self._buffer[1].
