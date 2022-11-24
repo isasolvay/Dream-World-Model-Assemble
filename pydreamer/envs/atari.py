@@ -196,3 +196,7 @@ class Atari_v3:
 
     def _obs(self, reward, reset=False, is_last=False, terminal=False):
         np.maximum(self._buffer[0], self._buffer[1], out=self._buffer[0])
+        image = self._buffer[0]
+        if image.shape[:2] != self._size:
+            if self._resize == "opencv":
+   
