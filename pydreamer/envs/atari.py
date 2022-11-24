@@ -194,3 +194,5 @@ class Atari_v3:
         obs, reward, terminal, _ = self._obs(0.0, reset=True)
         return obs
 
+    def _obs(self, reward, reset=False, is_last=False, terminal=False):
+        np.maximum(self._buffer[0], self._buffer[1], out=self._buffer[0])
