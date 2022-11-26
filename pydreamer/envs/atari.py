@@ -204,4 +204,8 @@ class Atari_v3:
                 )
             if self._resize == "pillow":
                 image = self._image.fromarray(image)
-                image = image.resize(self._size, self._imag
+                image = image.resize(self._size, self._image.NEAREST)
+                image = np.array(image)
+        if self._gray:
+            weights = [0.299, 0.587, 1 - (0.299 + 0.587)]
+   
