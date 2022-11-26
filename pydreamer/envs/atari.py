@@ -202,4 +202,6 @@ class Atari_v3:
                 image = self._cv2.resize(
                     image, self._size, interpolation=self._cv2.INTER_AREA
                 )
-            if s
+            if self._resize == "pillow":
+                image = self._image.fromarray(image)
+                image = image.resize(self._size, self._imag
