@@ -211,4 +211,10 @@ class Atari_v3:
             image = np.tensordot(image, weights, (-1, 0)).astype(image.dtype)
             image = image[:, :, None]
         return (
-           
+            {"image": image, "terminal": terminal, "reset": reset},
+            reward,
+            is_last,
+            {},
+        )
+
+    def _screen(self
