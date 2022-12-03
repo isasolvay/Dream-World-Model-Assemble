@@ -217,4 +217,9 @@ class Atari_v3:
             {},
         )
 
-    def _screen(self
+    def _screen(self, array):
+        self._ale.getScreenRGB2(array)
+
+    def close(self):
+        return self._env.close()
+
