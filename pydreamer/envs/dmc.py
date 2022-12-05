@@ -16,4 +16,7 @@ class DMC_v2(gym.Env):
             from dm_control import manipulation
             self._env = manipulation.load(task + '_vision')
         elif domain == 'locom':
-            from dm_control.locomotion.examples import basic_r
+            from dm_control.locomotion.examples import basic_rodent_2020
+            self._env = getattr(basic_rodent_2020, task)()
+        else:
+            from dm_control import suite
