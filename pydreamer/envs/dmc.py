@@ -20,3 +20,7 @@ class DMC_v2(gym.Env):
             self._env = getattr(basic_rodent_2020, task)()
         else:
             from dm_control import suite
+            self._env = suite.load(domain, task)
+        self._action_repeat = action_repeat
+        self._size = size
+        if camera i
