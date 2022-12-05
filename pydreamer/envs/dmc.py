@@ -13,4 +13,7 @@ class DMC_v2(gym.Env):
         if domain == 'cup':  # Only domain with multiple words.
             domain = 'ball_in_cup'
         if domain == 'manip':
-            from dm_control import manipulatio
+            from dm_control import manipulation
+            self._env = manipulation.load(task + '_vision')
+        elif domain == 'locom':
+            from dm_control.locomotion.examples import basic_r
