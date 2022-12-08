@@ -30,4 +30,8 @@ class DMC_v2(gym.Env):
                 quadruped_escape=2,
                 quadruped_fetch=2,
                 locom_rodent_maze_forage=1,
-                locom_rodent_t
+                locom_rodent_two_touch=1,
+            ).get(name, 0)
+        self._camera = camera
+        self._ignored_keys = []
+        for key, value in self._env.obs
