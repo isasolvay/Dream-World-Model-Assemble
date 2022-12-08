@@ -23,4 +23,8 @@ class DMC_v2(gym.Env):
             self._env = suite.load(domain, task)
         self._action_repeat = action_repeat
         self._size = size
-        if camera i
+        if camera is None:
+            camera = dict(
+                quadruped_walk=2,
+                quadruped_run=2,
+             
