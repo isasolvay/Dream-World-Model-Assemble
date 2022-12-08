@@ -27,4 +27,7 @@ class DMC_v2(gym.Env):
             camera = dict(
                 quadruped_walk=2,
                 quadruped_run=2,
-             
+                quadruped_escape=2,
+                quadruped_fetch=2,
+                locom_rodent_maze_forage=1,
+                locom_rodent_t
