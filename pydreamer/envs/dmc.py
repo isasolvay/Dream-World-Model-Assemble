@@ -34,4 +34,7 @@ class DMC_v2(gym.Env):
             ).get(name, 0)
         self._camera = camera
         self._ignored_keys = []
-        for key, value in self._env.obs
+        for key, value in self._env.observation_spec().items():
+            if value.shape == (0,):
+                print(f"Ignoring empty observation key '{key}'.")
+            
