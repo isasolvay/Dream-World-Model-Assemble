@@ -46,4 +46,6 @@ class DMC_v2(gym.Env):
             if key in self._ignored_keys:
                 continue
             if value.dtype == np.float64:
-      
+                spaces[key] = gym.spaces.Box(-np.inf, np.inf, value.shape, np.float32)
+            elif value.dtype == np.uint8:
+                space
