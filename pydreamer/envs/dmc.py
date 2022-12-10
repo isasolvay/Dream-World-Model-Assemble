@@ -37,4 +37,9 @@ class DMC_v2(gym.Env):
         for key, value in self._env.observation_spec().items():
             if value.shape == (0,):
                 print(f"Ignoring empty observation key '{key}'.")
-            
+                self._ignored_keys.append(key)
+
+    @property
+    def observation_space(self):
+        spaces = {}
+        for key, value in se
