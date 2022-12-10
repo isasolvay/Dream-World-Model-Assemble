@@ -42,4 +42,8 @@ class DMC_v2(gym.Env):
     @property
     def observation_space(self):
         spaces = {}
-        for key, value in se
+        for key, value in self._env.observation_spec().items():
+            if key in self._ignored_keys:
+                continue
+            if value.dtype == np.float64:
+      
