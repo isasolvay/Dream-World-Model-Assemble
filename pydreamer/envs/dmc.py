@@ -48,4 +48,7 @@ class DMC_v2(gym.Env):
             if value.dtype == np.float64:
                 spaces[key] = gym.spaces.Box(-np.inf, np.inf, value.shape, np.float32)
             elif value.dtype == np.uint8:
-                space
+                spaces[key] = gym.spaces.Box(0, 255, value.shape, np.uint8)
+            else:
+                raise NotImplementedError(value.dtype)
+        spaces['image'] 
