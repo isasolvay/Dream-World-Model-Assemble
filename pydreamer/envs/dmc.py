@@ -56,4 +56,6 @@ class DMC_v2(gym.Env):
         return gym.spaces.Dict(spaces)
 
     @property
-    def act
+    def action_space(self):
+        spec = self._env.action_spec()
+        action = gym.spaces.Box(spec.minimum, spec.maximum, dty
