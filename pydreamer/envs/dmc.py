@@ -51,4 +51,9 @@ class DMC_v2(gym.Env):
                 spaces[key] = gym.spaces.Box(0, 255, value.shape, np.uint8)
             else:
                 raise NotImplementedError(value.dtype)
-        spaces['image'] 
+        spaces['image'] = gym.spaces.Box(
+            0, 255, self._size + (3,), dtype=np.uint8)
+        return gym.spaces.Dict(spaces)
+
+    @property
+    def act
