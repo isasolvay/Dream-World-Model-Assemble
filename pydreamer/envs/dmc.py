@@ -58,4 +58,8 @@ class DMC_v2(gym.Env):
     @property
     def action_space(self):
         spec = self._env.action_spec()
-        action = gym.spaces.Box(spec.minimum, spec.maximum, dty
+        action = gym.spaces.Box(spec.minimum, spec.maximum, dtype=np.float32)
+        return action
+
+    def step(self, action):
+        assert np.isfinite(action).all(), action  # type:
