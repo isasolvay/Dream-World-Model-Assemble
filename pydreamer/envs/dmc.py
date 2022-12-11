@@ -62,4 +62,8 @@ class DMC_v2(gym.Env):
         return action
 
     def step(self, action):
-        assert np.isfinite(action).all(), action  # type:
+        assert np.isfinite(action).all(), action  # type: ignore
+        reward = 0
+        time_step = None
+        for _ in range(self._action_repeat):
+            time_step = self._
