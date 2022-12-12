@@ -66,4 +66,8 @@ class DMC_v2(gym.Env):
         reward = 0
         time_step = None
         for _ in range(self._action_repeat):
-            time_step = self._
+            time_step = self._env.step(action)
+            reward += time_step.reward or 0
+            if time_step.last():
+                break
+        assert time_step 
