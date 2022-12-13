@@ -73,4 +73,9 @@ class DMC_v2(gym.Env):
         assert time_step is not None
         obs = self.observation(time_step)
         done = time_step.last()
-        info = {'discount': np.array(time_ste
+        info = {'discount': np.array(time_step.discount, np.float32)}
+        return obs, reward, done, info
+
+    def reset(self):
+        time_step = self._env.reset()
+      
