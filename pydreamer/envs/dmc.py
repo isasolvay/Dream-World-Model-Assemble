@@ -70,4 +70,7 @@ class DMC_v2(gym.Env):
             reward += time_step.reward or 0
             if time_step.last():
                 break
-        assert time_step 
+        assert time_step is not None
+        obs = self.observation(time_step)
+        done = time_step.last()
+        info = {'discount': np.array(time_ste
