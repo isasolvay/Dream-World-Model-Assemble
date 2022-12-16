@@ -78,4 +78,8 @@ class DMC_v2(gym.Env):
 
     def reset(self):
         time_step = self._env.reset()
-      
+        obs = self.observation(time_step)
+        return obs
+
+    def observation(self, time_step):
+        obs = dict(time_ste
