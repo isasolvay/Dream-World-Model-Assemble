@@ -82,4 +82,7 @@ class DMC_v2(gym.Env):
         return obs
 
     def observation(self, time_step):
-        obs = dict(time_ste
+        obs = dict(time_step.observation)
+        obs = {k: v for k, v in obs.items() if k not in self._ignored_keys}
+        obs['image'] = self.render()
+       
