@@ -85,4 +85,8 @@ class DMC_v2(gym.Env):
         obs = dict(time_step.observation)
         obs = {k: v for k, v in obs.items() if k not in self._ignored_keys}
         obs['image'] = self.render()
-       
+        return obs
+
+    def render(self, *args, **kwargs):
+        if kwargs.get('mode', 'rgb_array') != 'rgb_array':
+            raise Valu
