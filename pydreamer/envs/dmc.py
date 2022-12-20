@@ -90,4 +90,10 @@ class DMC_v2(gym.Env):
     def render(self, *args, **kwargs):
         if kwargs.get('mode', 'rgb_array') != 'rgb_array':
             raise ValueError("Only render mode 'rgb_array' is supported.")
-        return self._env.physics.render(*self._size, camera_id=self._camera)  
+        return self._env.physics.render(*self._size, camera_id=self._camera)  # type: ignore
+    
+    
+class DMC_v3:
+    metadata = {}
+
+    def __init__(self, name, action_repeat=1, size=(64, 64), came
