@@ -96,4 +96,7 @@ class DMC_v2(gym.Env):
 class DMC_v3:
     metadata = {}
 
-    def __init__(self, name, action_repeat=1, size=(64, 64), came
+    def __init__(self, name, action_repeat=1, size=(64, 64), camera=None):
+        domain, task = name.split("_", 1)
+        if domain == "cup":  # Only domain with multiple words.
+            domain = "ball_in_
