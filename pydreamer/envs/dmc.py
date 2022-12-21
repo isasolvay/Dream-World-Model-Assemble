@@ -104,4 +104,7 @@ class DMC_v3:
             from dm_control import suite
 
             self._env = suite.load(domain, task)
-        e
+        else:
+            assert task is None
+            self._env = domain()
+        self._action_repeat = action_rep
