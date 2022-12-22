@@ -112,3 +112,9 @@ class DMC_v3:
         if camera is None:
             camera = dict(quadruped=2).get(domain, 0)
         self._camera = camera
+        self.reward_range = [-np.inf, np.inf]
+
+    @property
+    def observation_space(self):
+        spaces = {}
+        for key, val
