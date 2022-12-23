@@ -117,4 +117,8 @@ class DMC_v3:
     @property
     def observation_space(self):
         spaces = {}
-        for key, val
+        for key, value in self._env.observation_spec().items():
+            if len(value.shape) == 0:
+                shape = (1,)
+            else:
+               
