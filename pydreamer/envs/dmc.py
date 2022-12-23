@@ -121,4 +121,6 @@ class DMC_v3:
             if len(value.shape) == 0:
                 shape = (1,)
             else:
-               
+                shape = value.shape
+            spaces[key] = gym.spaces.Box(-np.inf, np.inf, shape, dtype=np.float32)
+        spaces["image"] = gym.spaces.B
