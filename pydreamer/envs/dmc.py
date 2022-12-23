@@ -123,4 +123,9 @@ class DMC_v3:
             else:
                 shape = value.shape
             spaces[key] = gym.spaces.Box(-np.inf, np.inf, shape, dtype=np.float32)
-        spaces["image"] = gym.spaces.B
+        spaces["image"] = gym.spaces.Box(0, 255, self._size + (3,), dtype=np.uint8)
+        return gym.spaces.Dict(spaces)
+
+    @property
+    def action_space(self):
+        spec = self._env.action
