@@ -132,4 +132,8 @@ class DMC_v3:
         return gym.spaces.Box(spec.minimum, spec.maximum, dtype=np.float32)
 
     def step(self, action):
-        assert np.isf
+        assert np.isfinite(action).all(), action
+        reward = 0
+        for _ in range(self._action_repeat):
+            time_step = self._env.step(action)
+            re
