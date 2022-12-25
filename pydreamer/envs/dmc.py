@@ -128,4 +128,8 @@ class DMC_v3:
 
     @property
     def action_space(self):
-        spec = self._env.action
+        spec = self._env.action_spec()
+        return gym.spaces.Box(spec.minimum, spec.maximum, dtype=np.float32)
+
+    def step(self, action):
+        assert np.isf
