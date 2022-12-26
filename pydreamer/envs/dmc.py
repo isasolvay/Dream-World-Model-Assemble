@@ -136,4 +136,8 @@ class DMC_v3:
         reward = 0
         for _ in range(self._action_repeat):
             time_step = self._env.step(action)
-            re
+            reward += time_step.reward or 0
+            if time_step.last():
+                break
+        obs = dict(time_step.observation)
+        obs = {k
