@@ -140,4 +140,6 @@ class DMC_v3:
             if time_step.last():
                 break
         obs = dict(time_step.observation)
-        obs = {k
+        obs = {key: [val] if len(val.shape) == 0 else val for key, val in obs.items()}
+        obs["image"] = self.render()
+        # There is no terminal state 
