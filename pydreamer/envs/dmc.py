@@ -152,4 +152,6 @@ class DMC_v3:
     def reset(self):
         time_step = self._env.reset()
         obs = dict(time_step.observation)
-        obs = {key: [val] if len(val.shape) == 0 else val for key,
+        obs = {key: [val] if len(val.shape) == 0 else val for key, val in obs.items()}
+        obs["image"] = self.render()
+        # obs["is_terminal"] = False if time_step.first() else time_step.discount =
