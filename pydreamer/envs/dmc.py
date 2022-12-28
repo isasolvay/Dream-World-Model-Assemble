@@ -149,4 +149,7 @@ class DMC_v3:
         info = {"discount": np.array(time_step.discount, np.float32)}
         return obs, reward, done, info
 
-    def reset(self
+    def reset(self):
+        time_step = self._env.reset()
+        obs = dict(time_step.observation)
+        obs = {key: [val] if len(val.shape) == 0 else val for key,
