@@ -159,4 +159,6 @@ class DMC_v3:
         return obs
 
     def render(self, *args, **kwargs):
-        if kwargs.g
+        if kwargs.get("mode", "rgb_array") != "rgb_array":
+            raise ValueError("Only render mode 'rgb_array' is supported.")
+       
