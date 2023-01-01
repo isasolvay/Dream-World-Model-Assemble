@@ -161,4 +161,4 @@ class DMC_v3:
     def render(self, *args, **kwargs):
         if kwargs.get("mode", "rgb_array") != "rgb_array":
             raise ValueError("Only render mode 'rgb_array' is supported.")
-       
+        return self._env.physics.render(*self._size, camera_id=self._camera)
