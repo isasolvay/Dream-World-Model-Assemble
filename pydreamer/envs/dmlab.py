@@ -11,4 +11,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""DeepMind
+"""DeepMind Lab Gym wrapper."""
+
+import os
+import gym
+import gym.spaces
+import numpy as np
+from PIL import Image
+
+import deepmind_
