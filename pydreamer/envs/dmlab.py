@@ -19,4 +19,9 @@ import gym.spaces
 import numpy as np
 from PIL import Image
 
-import deepmind_
+import deepmind_lab  # type: ignore
+
+# Default (action_dim=9)
+# ACTION_SET = (  # IMPALA action set
+#     (0, 0, 0, 1, 0, 0, 0),    # Forward
+#     (0, 0, 0, 
