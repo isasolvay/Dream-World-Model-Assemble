@@ -24,4 +24,7 @@ import deepmind_lab  # type: ignore
 # Default (action_dim=9)
 # ACTION_SET = (  # IMPALA action set
 #     (0, 0, 0, 1, 0, 0, 0),    # Forward
-#     (0, 0, 0, 
+#     (0, 0, 0, -1, 0, 0, 0),   # Backward
+#     (0, 0, -1, 0, 0, 0, 0),   # Strafe Left
+#     (0, 0, 1, 0, 0, 0, 0),    # Strafe Right
+#     (-20, 0, 0, 0, 0, 0, 0),
