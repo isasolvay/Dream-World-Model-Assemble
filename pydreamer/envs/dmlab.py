@@ -27,4 +27,7 @@ import deepmind_lab  # type: ignore
 #     (0, 0, 0, -1, 0, 0, 0),   # Backward
 #     (0, 0, -1, 0, 0, 0, 0),   # Strafe Left
 #     (0, 0, 1, 0, 0, 0, 0),    # Strafe Right
-#     (-20, 0, 0, 0, 0, 0, 0),
+#     (-20, 0, 0, 0, 0, 0, 0),  # Look Left
+#     (20, 0, 0, 0, 0, 0, 0),   # Look Right
+#     (-20, 0, 0, 1, 0, 0, 0),  # Look Left + Forward
+#     (20, 0, 0, 1,
