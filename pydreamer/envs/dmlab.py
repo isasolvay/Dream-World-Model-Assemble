@@ -30,4 +30,10 @@ import deepmind_lab  # type: ignore
 #     (-20, 0, 0, 0, 0, 0, 0),  # Look Left
 #     (20, 0, 0, 0, 0, 0, 0),   # Look Right
 #     (-20, 0, 0, 1, 0, 0, 0),  # Look Left + Forward
-#     (20, 0, 0, 1,
+#     (20, 0, 0, 1, 0, 0, 0),   # Look Right + Forward
+#     (0, 0, 0, 0, 1, 0, 0),    # Fire.
+# )
+
+# RLU (action:dim=15)
+ACTION_SET = {  # R2D2 action set
+    0
