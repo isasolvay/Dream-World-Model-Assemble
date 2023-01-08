@@ -39,4 +39,6 @@ ACTION_SET = {  # R2D2 action set
     0: (0, 0, 0, 1, 0, 0, 0),     # Forward
     1: (0, 0, 0, -1, 0, 0, 0),    # Backward
     2: (0, 0, -1, 0, 0, 0, 0),    # Strafe Left
-    3: (0, 0, 1, 0, 0
+    3: (0, 0, 1, 0, 0, 0, 0),     # Strafe Right
+    4: (-10, 0, 0, 0, 0, 0, 0),   # Left (10 deg)
+    5: (10, 0, 0, 0, 0, 0, 0),    # Right (10 deg
