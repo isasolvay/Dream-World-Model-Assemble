@@ -49,4 +49,9 @@ ACTION_SET = {  # R2D2 action set
     10: (-10, 0, 0, 1, 0, 0, 0),  # Left (10 deg) + Forward
     11: (10, 0, 0, 1, 0, 0, 0),   # Right (10 deg) + Forward
     12: (-60, 0, 0, 1, 0, 0, 0),  # Left (60 deg) + Forward
-    13: (60,
+    13: (60, 0, 0, 1, 0, 0, 0),   # Right (60 deg) + Forward
+    14: (0, 0, 0, 0, 1, 0, 0),    # Fire
+}
+
+ALL_GAMES = frozenset([
+    'rooms_collect_good_objects_train', 
