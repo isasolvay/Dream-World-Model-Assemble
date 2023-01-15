@@ -62,4 +62,7 @@ ALL_GAMES = frozenset([
     'rooms_watermaze',
     'rooms_keys_doors_puzzle',
     'language_select_described_object',
-   
+    'language_select_located_object',
+    'language_execute_random_task',
+    'language_answer_quantitative_question',
+    'lasertag_one_op
