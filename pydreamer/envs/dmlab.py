@@ -58,4 +58,8 @@ ALL_GAMES = frozenset([
     'rooms_collect_good_objects_test',  # rooms_collect_good_objects
     'rooms_exploit_deferred_effects_train',  # rooms_exploit_deferred_effects
     'rooms_exploit_deferred_effects_test',  # rooms_exploit_deferred_effects
+    'rooms_select_nonmatching_object',
+    'rooms_watermaze',
+    'rooms_keys_doors_puzzle',
+    'language_select_described_object',
    
