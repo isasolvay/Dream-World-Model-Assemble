@@ -54,4 +54,6 @@ ACTION_SET = {  # R2D2 action set
 }
 
 ALL_GAMES = frozenset([
-    'rooms_collect_good_objects_train', 
+    'rooms_collect_good_objects_train',  # rooms_collect_good_objects
+    'rooms_collect_good_objects_test',  # rooms_collect_good_objects
+    'rooms_exploit_deferred_effects_t
