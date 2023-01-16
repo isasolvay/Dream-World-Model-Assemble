@@ -69,4 +69,8 @@ ALL_GAMES = frozenset([
     'lasertag_three_opponents_small',
     'lasertag_one_opponent_large',
     'lasertag_three_opponents_large',
-    'natlab_fixed_la
+    'natlab_fixed_large_map',
+    'natlab_varying_map_regrowth',
+    'natlab_varying_map_randomized',
+    'skymaze_irreversible_path_hard',
+    'skymaze_irreversible_path_
