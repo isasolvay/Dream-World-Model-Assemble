@@ -73,4 +73,7 @@ ALL_GAMES = frozenset([
     'natlab_varying_map_regrowth',
     'natlab_varying_map_randomized',
     'skymaze_irreversible_path_hard',
-    'skymaze_irreversible_path_
+    'skymaze_irreversible_path_varied',
+    'psychlab_arbitrary_visuomotor_mapping',
+    'psychlab_continuous_recognition',
+    'psychlab_sequential_comparison',
