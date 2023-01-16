@@ -65,4 +65,8 @@ ALL_GAMES = frozenset([
     'language_select_located_object',
     'language_execute_random_task',
     'language_answer_quantitative_question',
-    'lasertag_one_op
+    'lasertag_one_opponent_small',
+    'lasertag_three_opponents_small',
+    'lasertag_one_opponent_large',
+    'lasertag_three_opponents_large',
+    'natlab_fixed_la
