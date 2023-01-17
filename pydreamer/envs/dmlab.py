@@ -77,3 +77,7 @@ ALL_GAMES = frozenset([
     'psychlab_arbitrary_visuomotor_mapping',
     'psychlab_continuous_recognition',
     'psychlab_sequential_comparison',
+    'psychlab_visual_search',
+    'explore_object_locations_small',
+    'explore_object_locations_large',
+    'explore_obstruc
