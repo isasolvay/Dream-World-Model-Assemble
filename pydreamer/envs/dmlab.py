@@ -80,4 +80,8 @@ ALL_GAMES = frozenset([
     'psychlab_visual_search',
     'explore_object_locations_small',
     'explore_object_locations_large',
-    'explore_obstruc
+    'explore_obstructed_goals_small',
+    'explore_obstructed_goals_large',
+    'explore_goal_locations_small',
+    'explore_goal_locations_large',
+ 
