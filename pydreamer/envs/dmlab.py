@@ -90,4 +90,7 @@ ALL_GAMES = frozenset([
 
 
 class DmLab(gym.Env):
-    """DeepMind Lab wrapp
+    """DeepMind Lab wrapper."""
+
+    def __init__(self, game, num_action_repeats, action_set=ACTION_SET):
+        self.num_action_repeats = num_action_re
