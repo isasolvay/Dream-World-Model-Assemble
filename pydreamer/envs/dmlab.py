@@ -93,4 +93,8 @@ class DmLab(gym.Env):
     """DeepMind Lab wrapper."""
 
     def __init__(self, game, num_action_repeats, action_set=ACTION_SET):
-        self.num_action_repeats = num_action_re
+        self.num_action_repeats = num_action_repeats
+        self.env = deepmind_lab.Lab(
+            level='contributed/dmlab30/' + game,
+            observations=['RGB_INTERLEAVED'],
+            
