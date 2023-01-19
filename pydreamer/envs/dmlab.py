@@ -84,4 +84,10 @@ ALL_GAMES = frozenset([
     'explore_obstructed_goals_large',
     'explore_goal_locations_small',
     'explore_goal_locations_large',
- 
+    'explore_object_rewards_few',
+    'explore_object_rewards_many',
+])
+
+
+class DmLab(gym.Env):
+    """DeepMind Lab wrapp
