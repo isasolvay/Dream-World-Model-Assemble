@@ -97,4 +97,6 @@ class DmLab(gym.Env):
         self.env = deepmind_lab.Lab(
             level='contributed/dmlab30/' + game,
             observations=['RGB_INTERLEAVED'],
-            
+            config=dict(
+                # fps='30',   # this produces 900 not 1800 steps in watermaze
+                height='72',  # 72x96 to match RLU observa
