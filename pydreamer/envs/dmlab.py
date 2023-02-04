@@ -104,4 +104,9 @@ class DmLab(gym.Env):
                 # dataset needed for psychlab_*, see https://github.com/deepmind/lab/tree/master/data/brady_konkle_oliva2008
                 datasetPath=os.environ.get('DMLAB_DATASET_PATH', ''),
                 maxAltCameraHeight='1',
-          
+                maxAltCameraWidth='1',
+                hasAltCameras='false',
+                allowHoldOutLevels='true',
+                ),
+        )
+       
