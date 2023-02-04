@@ -109,4 +109,6 @@ class DmLab(gym.Env):
                 allowHoldOutLevels='true',
                 ),
         )
-       
+        self.action_set = action_set
+        self.action_space = gym.spaces.Discrete(len(self.action_set))
+        self.observatio
