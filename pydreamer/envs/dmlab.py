@@ -111,4 +111,7 @@ class DmLab(gym.Env):
         )
         self.action_set = action_set
         self.action_space = gym.spaces.Discrete(len(self.action_set))
-        self.observatio
+        self.observation_space = gym.spaces.Box(low=0, high=255, shape=(64, 64, 3), dtype=np.uint8)
+
+    def observation(self):
+        img = self.en
