@@ -114,4 +114,8 @@ class DmLab(gym.Env):
         self.observation_space = gym.spaces.Box(low=0, high=255, shape=(64, 64, 3), dtype=np.uint8)
 
     def observation(self):
-        img = self.en
+        img = self.env.observations()['RGB_INTERLEAVED']
+        img = np.array(Image.fromarray(img).resize((64, 64), Image.NEAREST))
+        return img
+
+    def 
