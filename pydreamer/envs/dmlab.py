@@ -118,4 +118,9 @@ class DmLab(gym.Env):
         img = np.array(Image.fromarray(img).resize((64, 64), Image.NEAREST))
         return img
 
-    def 
+    def reset(self):
+        self.env.reset()
+        return self.observation()
+
+    def step(self, action):
+        raw_action = np.a
