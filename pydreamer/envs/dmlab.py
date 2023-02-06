@@ -123,4 +123,6 @@ class DmLab(gym.Env):
         return self.observation()
 
     def step(self, action):
-        raw_action = np.a
+        raw_action = np.array(self.action_set[action], np.intc)
+        reward = self.env.step(raw_action, num_steps=self.num_action_repeats)
+        done = 
