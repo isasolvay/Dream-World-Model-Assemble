@@ -129,4 +129,5 @@ class DmLab(gym.Env):
         if not done:
             observation = self.observation()
         else:
-            # Do not have actual obs
+            # Do not have actual observation in done state, but need to return something
+            observation = np.zeros(self.observation_space.shape, dtype=self.obse
