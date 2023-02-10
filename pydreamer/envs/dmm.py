@@ -187,3 +187,42 @@ def _connect_to_environment(settings: EnvironmentSettings, address: str):
 
 def _create_channel_and_connection(address: str, max_attempts: int = 10):
     """Returns a tuple of `(channel, connection)`."""
+    for _ in range(max_attempts):
+        debug('GRPC creating channel...')
+        channel = grpc.insecure_channel(address)  # host:port
+        _check_grpc_channel_ready(channel)
+        debug('GRPC creating connection...')
+        connection = dm_env_rpc_connection.Connection(channel)
+        if _can_send_message(connection):
+            # CONNECTED
+            return channel, connection
+        else:
+            warning(f'GRPC problem connecting to {address} - will retry {max_attempts} times')
+            connection.close()
+            channel.close()
+            time.sleep(1.0)
+
+    raise Exception(f'Could not connect to DMM env on {address}')
+
+
+def _check_grpc_channel_ready(channel, max_attempts: int = 10):
+    for _ in range(max_attempts - 1):
+        try:
+            debug('GRPC checking channel...')
+            return grpc.channel_ready_future(channel).result(timeout=1)
+        except grpc.FutureTimeoutError:
+            warning('GRPC checking channel - failed.')
+            pass
+    return grpc.channel_ready_future(channel).result(timeout=1)
+
+
+def _can_send_message(connection):
+    try:
+        debug('GRPC trying send message...')
+        connection.send(dm_env_rpc_pb2.StepRequest())
+    except dm_env_rpc_error.DmEnvRpcError:
+        debug('GRPC send message - OK.')
+        return True
+    except grpc.RpcError:
+        warning('GRPC send message - failed.')
+        return False
