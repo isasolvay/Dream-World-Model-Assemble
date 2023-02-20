@@ -10,4 +10,10 @@ from embodied.envs import load_single_env
 
 
 class EmbodiedEnv(gym.Env):
-    """gym.Env wrapper around embo
+    """gym.Env wrapper around embodied.Env"""
+
+    def __init__(self,
+                 task,
+                 action_repeat=1,
+                 time_limit=0,
+                 obs_
