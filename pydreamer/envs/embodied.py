@@ -16,4 +16,5 @@ class EmbodiedEnv(gym.Env):
                  task,
                  action_repeat=1,
                  time_limit=0,
-                 obs_
+                 obs_keys=['image', 'inventory', 'equipped'],  # TODO: this default is for Minecraft
+                 restart=True,  # restart needed for Min
