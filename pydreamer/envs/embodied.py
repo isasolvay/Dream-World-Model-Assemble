@@ -17,4 +17,7 @@ class EmbodiedEnv(gym.Env):
                  action_repeat=1,
                  time_limit=0,
                  obs_keys=['image', 'inventory', 'equipped'],  # TODO: this default is for Minecraft
-                 restart=True,  # restart needed for Min
+                 restart=True,  # restart needed for Minecraft
+                 ):
+        ctor = functools.partial(load_single_env, task, repeat=action_repeat, length=time_limit)
+        if restar
