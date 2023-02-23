@@ -20,4 +20,8 @@ class EmbodiedEnv(gym.Env):
                  restart=True,  # restart needed for Minecraft
                  ):
         ctor = functools.partial(load_single_env, task, repeat=action_repeat, length=time_limit)
-        if restar
+        if restart:
+            self._env = embodied.wrappers.RestartOnException(ctor)
+        else:
+            self._env = ctor()
+        self.obs_keys
