@@ -24,4 +24,6 @@ class EmbodiedEnv(gym.Env):
             self._env = embodied.wrappers.RestartOnException(ctor)
         else:
             self._env = ctor()
-        self.obs_keys
+        self.obs_keys = obs_keys
+        self.action_space = EmbodiedEnv.convert_act_space(self._env.act_space)
+        self.observation_space = EmbodiedEnv.convert_obs_space(se
