@@ -26,4 +26,8 @@ class EmbodiedEnv(gym.Env):
             self._env = ctor()
         self.obs_keys = obs_keys
         self.action_space = EmbodiedEnv.convert_act_space(self._env.act_space)
-        self.observation_space = EmbodiedEnv.convert_obs_space(se
+        self.observation_space = EmbodiedEnv.convert_obs_space(self._env.obs_space, obs_keys)
+
+    @staticmethod
+    def convert_act_space(act_space: embodied.Space) -> gym.spaces.Space:
+        assert isin
