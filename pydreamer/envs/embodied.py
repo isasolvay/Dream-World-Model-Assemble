@@ -30,4 +30,6 @@ class EmbodiedEnv(gym.Env):
 
     @staticmethod
     def convert_act_space(act_space: embodied.Space) -> gym.spaces.Space:
-        assert isin
+        assert isinstance(act_space, dict)
+        assert tuple(act_space.keys()) == ('action', 'reset')
+        return space_from_embodied(act_space['ac
