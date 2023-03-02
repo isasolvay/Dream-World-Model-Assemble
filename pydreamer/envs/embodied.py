@@ -38,4 +38,7 @@ class EmbodiedEnv(gym.Env):
     def convert_obs_space(obs_space: embodied.Space, obs_keys: List[str]) -> gym.spaces.Space:
         assert isinstance(obs_space, dict)
         print_once(f'Using observation keys {obs_keys} from available:', list(obs_space.keys()))
-      
+        assert 'reward' in obs_space
+        assert 'is_first' in obs_space
+        assert 'is_last' in obs_space
+        assert 'i
