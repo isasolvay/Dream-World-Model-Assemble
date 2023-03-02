@@ -36,4 +36,6 @@ class EmbodiedEnv(gym.Env):
 
     @staticmethod
     def convert_obs_space(obs_space: embodied.Space, obs_keys: List[str]) -> gym.spaces.Space:
-        ass
+        assert isinstance(obs_space, dict)
+        print_once(f'Using observation keys {obs_keys} from available:', list(obs_space.keys()))
+      
