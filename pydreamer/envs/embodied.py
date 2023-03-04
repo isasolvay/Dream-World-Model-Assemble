@@ -41,4 +41,8 @@ class EmbodiedEnv(gym.Env):
         assert 'reward' in obs_space
         assert 'is_first' in obs_space
         assert 'is_last' in obs_space
-        assert 'i
+        assert 'is_terminal' in obs_space
+        gym_space = gym.spaces.Dict({k: space_from_embodied(obs_space[k]) for k in obs_keys})
+        return gym_space
+
+  
