@@ -45,4 +45,6 @@ class EmbodiedEnv(gym.Env):
         gym_space = gym.spaces.Dict({k: space_from_embodied(obs_space[k]) for k in obs_keys})
         return gym_space
 
-  
+    def reset(self):
+        ts = self._env.step({'action': self.action_space.low, 'reset': True})  # type: ignore
+        obs, reward, done, i
