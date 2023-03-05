@@ -47,4 +47,9 @@ class EmbodiedEnv(gym.Env):
 
     def reset(self):
         ts = self._env.step({'action': self.action_space.low, 'reset': True})  # type: ignore
-        obs, reward, done, i
+        obs, reward, done, info = self._obs(ts)
+        return obs
+
+    def step(self, action):
+        ts = self._env.step({'action': action, 'reset': False})
+     
