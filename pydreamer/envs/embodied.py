@@ -56,4 +56,8 @@ class EmbodiedEnv(gym.Env):
         return obs, reward, done, info
 
     def _obs(self, ts):
-        obs = {k: ts[k]
+        obs = {k: ts[k] for k in self.obs_keys}
+        reward = ts['reward']
+        done = ts['is_last']
+        is_terminal = ts['is_terminal']
+        info 
