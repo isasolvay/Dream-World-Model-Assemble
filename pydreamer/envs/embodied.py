@@ -52,4 +52,8 @@ class EmbodiedEnv(gym.Env):
 
     def step(self, action):
         ts = self._env.step({'action': action, 'reset': False})
-     
+        obs, reward, done, info = self._obs(ts)
+        return obs, reward, done, info
+
+    def _obs(self, ts):
+        obs = {k: ts[k]
