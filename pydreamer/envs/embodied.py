@@ -60,4 +60,10 @@ class EmbodiedEnv(gym.Env):
         reward = ts['reward']
         done = ts['is_last']
         is_terminal = ts['is_terminal']
-        info 
+        info = {}
+        if done and not is_terminal:
+            info['time_limit'] = True
+        return obs, reward, done, info
+
+
+def space_from_embodie
