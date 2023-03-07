@@ -66,4 +66,6 @@ class EmbodiedEnv(gym.Env):
         return obs, reward, done, info
 
 
-def space_from_embodie
+def space_from_embodied(space: embodied.Space) -> gym.spaces.Space:
+    """Convert embodied.Space to gym.Space."""
+    gym_space =
