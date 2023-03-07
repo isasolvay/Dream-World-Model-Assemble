@@ -68,4 +68,6 @@ class EmbodiedEnv(gym.Env):
 
 def space_from_embodied(space: embodied.Space) -> gym.spaces.Space:
     """Convert embodied.Space to gym.Space."""
-    gym_space =
+    gym_space = gym.spaces.Box(
+        space.low.item() if len(space.low.shape) == 0 else space.low,   # type: ignore
+        space.high.item() if len(sp
