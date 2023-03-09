@@ -73,3 +73,5 @@ def space_from_embodied(space: embodied.Space) -> gym.spaces.Space:
         space.high.item() if len(space.high.shape) == 0 else space.high,  # type: ignore
         space.shape,
         space.dtype)  # type: ignore
+    # NOTE: embodied.Space knows how to sample one-hot discrete actions, so one-hot
+    # action space will look like Box((N,),low=0,hi
