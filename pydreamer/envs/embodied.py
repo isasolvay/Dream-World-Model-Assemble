@@ -74,4 +74,6 @@ def space_from_embodied(space: embodied.Space) -> gym.spaces.Space:
         space.shape,
         space.dtype)  # type: ignore
     # NOTE: embodied.Space knows how to sample one-hot discrete actions, so one-hot
-    # action space will look like Box((N,),low=0,hi
+    # action space will look like Box((N,),low=0,high=1), but it will sample correctly.
+    gym_space.sample = space.sample
+    return gym_space
