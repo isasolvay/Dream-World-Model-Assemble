@@ -13,3 +13,8 @@ class MiniGrid(gym.Env):
 
     GRID_VALUES = np.array([  # shape=(33,3)
         [0, 0, 0],  # Invisible
+        [1, 0, 0],  # Empty
+        [2, 5, 0],  # Wall
+        [8, 1, 0],  # Goal
+        # Agent
+        [10, 0, 0],
