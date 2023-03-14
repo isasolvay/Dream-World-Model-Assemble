@@ -18,3 +18,10 @@ class MiniGrid(gym.Env):
         [8, 1, 0],  # Goal
         # Agent
         [10, 0, 0],
+        [10, 0, 1],
+        [10, 0, 2],
+        [10, 0, 3],
+        # Door (color, state)
+        [4, 0, 0],
+        [4, 0, 1],
+ 
