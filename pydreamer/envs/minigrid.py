@@ -53,4 +53,8 @@ class MiniGrid(gym.Env):
         [7, 1, 0],
         [7, 2, 0],
         [7, 3, 0],
-  
+        [7, 4, 0],
+        [7, 5, 0],
+    ])
+
+    def __init__(self, env_name, max_steps=500, seed=None, 
