@@ -65,4 +65,7 @@ class MiniGrid(gym.Env):
         if seed:
             self.env.seed(seed)
         self.max_steps = max_steps
-        self.ag
+        self.agent_init_pos = agent_init_pos
+        self.agent_init_dir = agent_init_dir
+
+        grid = self.env.grid.encode()  # type: ignore  # Grid is already gen
