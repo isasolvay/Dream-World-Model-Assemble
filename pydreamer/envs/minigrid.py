@@ -72,4 +72,6 @@ class MiniGrid(gym.Env):
         self.map_size = n = grid.shape[0]
         self.map_centered_size = m = 2 * n - 3  # 11x11 => 19x19
 
-  
+        spaces = {}
+        spaces['image'] = gym.spaces.Box(0, 255, (7, 7), np.uint8)
+        spaces['map'] = gym.spaces.Box(0, 255
