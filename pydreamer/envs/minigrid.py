@@ -68,4 +68,8 @@ class MiniGrid(gym.Env):
         self.agent_init_pos = agent_init_pos
         self.agent_init_dir = agent_init_dir
 
-        grid = self.env.grid.encode()  # type: ignore  # Grid is already gen
+        grid = self.env.grid.encode()  # type: ignore  # Grid is already generated when env is created
+        self.map_size = n = grid.shape[0]
+        self.map_centered_size = m = 2 * n - 3  # 11x11 => 19x19
+
+  
