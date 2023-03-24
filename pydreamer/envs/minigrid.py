@@ -78,4 +78,6 @@ class MiniGrid(gym.Env):
         spaces['map_agent'] = gym.spaces.Box(0, 255, (n, n), np.uint8)
         spaces['map_masked'] = gym.spaces.Box(0, 255, (n, n), np.uint8)
         spaces['map_vis'] = gym.spaces.Box(0, self.max_steps, (n, n), np.uint16)
-        spaces['map_centered'] = gym.spaces.Box
+        spaces['map_centered'] = gym.spaces.Box(0, 255, (m, m), np.uint8)
+        spaces['agent_pos'] = gym.spaces.Box(0., 100., (2,), np.float32)
+        spaces['agent_
