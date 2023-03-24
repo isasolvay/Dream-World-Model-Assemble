@@ -82,4 +82,9 @@ class MiniGrid(gym.Env):
         spaces['agent_pos'] = gym.spaces.Box(0., 100., (2,), np.float32)
         spaces['agent_dir'] = gym.spaces.Box(-1., 1., (2,), np.float32)
         self.observation_space = gym.spaces.Dict(spaces)
-        self.action_space = self.
+        self.action_space = self.env.action_space
+
+        self.map_last_seen = np.zeros(grid.shape[0:2], dtype=np.uint16)
+
+    @staticmethod
+    def has_action_r
