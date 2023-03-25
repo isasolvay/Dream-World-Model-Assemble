@@ -97,4 +97,6 @@ class MiniGrid(gym.Env):
     def reset(self):
         obs = self.env.reset()
         if self.agent_init_pos:
-            # Initialize agent in a fixed position, so
+            # Initialize agent in a fixed position, so it can build a map
+            self.env.agent_pos = np.array(self.agent_init_pos)
+            self.env.agent_dir = self.agent_in
