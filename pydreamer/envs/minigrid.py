@@ -87,4 +87,9 @@ class MiniGrid(gym.Env):
         self.map_last_seen = np.zeros(grid.shape[0:2], dtype=np.uint16)
 
     @staticmethod
-    def has_action_r
+    def has_action_repeat():
+        return False
+
+    def step(self, action):
+        obs, reward, done, info = self.env.step(action)
+        return self.observation(ob
