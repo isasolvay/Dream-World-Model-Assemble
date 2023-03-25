@@ -92,4 +92,9 @@ class MiniGrid(gym.Env):
 
     def step(self, action):
         obs, reward, done, info = self.env.step(action)
-        return self.observation(ob
+        return self.observation(obs), reward, done, info
+
+    def reset(self):
+        obs = self.env.reset()
+        if self.agent_init_pos:
+            # Initialize agent in a fixed position, so
