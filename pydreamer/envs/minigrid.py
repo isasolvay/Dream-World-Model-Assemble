@@ -106,4 +106,8 @@ class MiniGrid(gym.Env):
         return self.observation(obs)
 
     def observation(self, obs_in):
-        img = ob
+        img = obs_in['image']
+
+        obs = {}
+        obs['image'] = self.to_categorical(img)
+        obs['map'] = self.to_categorical(self.map(wit
