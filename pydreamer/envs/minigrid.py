@@ -101,4 +101,9 @@ class MiniGrid(gym.Env):
             self.env.agent_pos = np.array(self.agent_init_pos)
             self.env.agent_dir = self.agent_init_dir
             self.env.grid.set(*self.env.agent_pos, None)  # type: ignore  # Remove if something was there
-            obs = 
+            obs = self.env.gen_obs()
+        self.reset_map_last_seen()
+        return self.observation(obs)
+
+    def observation(self, obs_in):
+        img = ob
