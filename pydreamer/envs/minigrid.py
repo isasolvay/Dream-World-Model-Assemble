@@ -113,4 +113,6 @@ class MiniGrid(gym.Env):
         obs['map'] = self.to_categorical(self.map(with_agent=False))
         obs['map_agent'] = self.to_categorical(self.map(with_agent=True))
         vis_mask = self.global_vis_mask(img)
-        obs['map_masked']
+        obs['map_masked'] = obs['map_agent'] * vis_mask
+        obs['map_vis'] = self.update_map_last_seen(vis_mask)
+        obs['map_centered'] 
