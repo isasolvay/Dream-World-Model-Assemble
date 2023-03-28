@@ -115,4 +115,6 @@ class MiniGrid(gym.Env):
         vis_mask = self.global_vis_mask(img)
         obs['map_masked'] = obs['map_agent'] * vis_mask
         obs['map_vis'] = self.update_map_last_seen(vis_mask)
-        obs['map_centered'] 
+        obs['map_centered'] = self.to_categorical(self.map_centered())
+        obs['agent_pos'] = np.array(self.env.agent_pos, dtype=np.float32)
+        agent_dir = int(s
