@@ -121,4 +121,8 @@ class MiniGrid(gym.Env):
         obs['agent_dir'] = np.array([[+1, 0], [0, +1], [-1, 0], [0, -1]][agent_dir], dtype=np.float32)
 
         for k in obs:
-            assert obs[k].shape == self.observation_space[k].shape, f"Wrong shape {k}: {obs[k].sha
+            assert obs[k].shape == self.observation_space[k].shape, f"Wrong shape {k}: {obs[k].shape} != {self.observation_space[k].shape}"  # type: ignore
+        return obs
+
+    @staticmethod
+    def to_categorical(image_i
