@@ -125,4 +125,8 @@ class MiniGrid(gym.Env):
         return obs
 
     @staticmethod
-    def to_categorical(image_i
+    def to_categorical(image_ids):
+        n = len(MiniGrid.GRID_VALUES)
+        out = np.zeros(image_ids.shape[:-1] + (n,))
+        for i in range(n):
+        
