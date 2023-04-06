@@ -129,4 +129,6 @@ class MiniGrid(gym.Env):
         n = len(MiniGrid.GRID_VALUES)
         out = np.zeros(image_ids.shape[:-1] + (n,))
         for i in range(n):
-        
+            val = MiniGrid.GRID_VALUES[i]
+            out[..., i] = (image_ids == val).all(axis=-1)
+        out = out.argmax(axis=-1).astype(np.ui
