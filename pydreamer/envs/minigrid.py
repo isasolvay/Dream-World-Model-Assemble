@@ -131,4 +131,9 @@ class MiniGrid(gym.Env):
         for i in range(n):
             val = MiniGrid.GRID_VALUES[i]
             out[..., i] = (image_ids == val).all(axis=-1)
-        out = out.argmax(axis=-1).astype(np.ui
+        out = out.argmax(axis=-1).astype(np.uint8)  # (..., 7, 7, 33) => (..., 7, 7)
+        return out
+
+    @staticmethod
+    def from_categorical(img):
+        return
