@@ -143,4 +143,10 @@ class MiniGrid(gym.Env):
         if with_agent:
             out[self.env.agent_pos[0]][self.env.agent_pos[1]] = np.array([  # type: ignore
                 OBJECT_TO_IDX['agent'],
-                COL
+                COLOR_TO_IDX['red'],
+                self.env.agent_dir
+            ])
+        return out
+
+    def map_centered(self):
+        n = self.map_cen
