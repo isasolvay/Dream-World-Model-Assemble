@@ -136,4 +136,8 @@ class MiniGrid(gym.Env):
 
     @staticmethod
     def from_categorical(img):
-        return
+        return MiniGrid.GRID_VALUES[img]
+
+    def map(self, with_agent=True):
+        out = self.env.grid.encode()  # type: ignore
+        if wi
