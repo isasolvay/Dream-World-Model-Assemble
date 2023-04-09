@@ -140,4 +140,7 @@ class MiniGrid(gym.Env):
 
     def map(self, with_agent=True):
         out = self.env.grid.encode()  # type: ignore
-        if wi
+        if with_agent:
+            out[self.env.agent_pos[0]][self.env.agent_pos[1]] = np.array([  # type: ignore
+                OBJECT_TO_IDX['agent'],
+                COL
