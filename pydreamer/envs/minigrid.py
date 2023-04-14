@@ -154,4 +154,11 @@ class MiniGrid(gym.Env):
         grid = self.env.grid.slice(x - (n - 1) // 2, y - (n - 1) // 2, n, n)  # type: ignore
         for i in range(self.env.agent_dir + 1):  # type: ignore
             grid = grid.rotate_left()
-        image
+        image = grid.encode()
+        return image
+
+    def reset_map_last_seen(self):
+        self.map_last_seen *= 0
+        self.map_last_seen += self.max_steps
+
+    def update_ma
