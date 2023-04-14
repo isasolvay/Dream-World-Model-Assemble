@@ -151,4 +151,7 @@ class MiniGrid(gym.Env):
     def map_centered(self):
         n = self.map_centered_size
         x, y = self.env.agent_pos  # type: ignore
-        grid = self.env.grid.slice(x - (n - 1) // 2, y - (n - 1) // 2, n, n)  # type
+        grid = self.env.grid.slice(x - (n - 1) // 2, y - (n - 1) // 2, n, n)  # type: ignore
+        for i in range(self.env.agent_dir + 1):  # type: ignore
+            grid = grid.rotate_left()
+        image
