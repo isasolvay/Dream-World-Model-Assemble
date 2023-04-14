@@ -149,4 +149,6 @@ class MiniGrid(gym.Env):
         return out
 
     def map_centered(self):
-        n = self.map_cen
+        n = self.map_centered_size
+        x, y = self.env.agent_pos  # type: ignore
+        grid = self.env.grid.slice(x - (n - 1) // 2, y - (n - 1) // 2, n, n)  # type
