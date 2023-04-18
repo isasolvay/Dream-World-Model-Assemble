@@ -170,4 +170,7 @@ class MiniGrid(gym.Env):
 
     def global_vis_mask(self, img):
         # Mark which cells are visible on the global map
-        obs_vi
+        obs_vis_mask = img[:, :, 0] > 0
+        glb_vis_mask = np.zeros((self.env.width, self.env.height), dtype=np.bool)
+        x, y, mask = self.obs_global_coords()
+        glb_vis_
