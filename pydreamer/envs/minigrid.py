@@ -163,4 +163,7 @@ class MiniGrid(gym.Env):
 
     def update_map_last_seen(self, map_vis):
         # Update how long ago each map grid was seen. If not seen, then set to max_steps
-        self.m
+        self.map_last_seen += 1
+        np.clip(self.map_last_seen, 0, self.max_steps, out=self.map_last_seen)
+        self.map_last_seen *= (~map_vis)
+        ret
