@@ -166,4 +166,8 @@ class MiniGrid(gym.Env):
         self.map_last_seen += 1
         np.clip(self.map_last_seen, 0, self.max_steps, out=self.map_last_seen)
         self.map_last_seen *= (~map_vis)
-        ret
+        return self.map_last_seen.copy()
+
+    def global_vis_mask(self, img):
+        # Mark which cells are visible on the global map
+        obs_vi
