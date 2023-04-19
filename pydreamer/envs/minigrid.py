@@ -173,4 +173,8 @@ class MiniGrid(gym.Env):
         obs_vis_mask = img[:, :, 0] > 0
         glb_vis_mask = np.zeros((self.env.width, self.env.height), dtype=np.bool)
         x, y, mask = self.obs_global_coords()
-        glb_vis_
+        glb_vis_mask[x[mask], y[mask]] = obs_vis_mask[mask]
+        return glb_vis_mask
+
+    def obs_global_coords(self):
+        n = self.env
