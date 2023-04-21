@@ -177,4 +177,8 @@ class MiniGrid(gym.Env):
         return glb_vis_mask
 
     def obs_global_coords(self):
-        n = self.env
+        n = self.env.agent_view_size  # =7
+        x = np.zeros((n, n), int)
+        y = np.zeros((n, n), int)
+        mask = np.zeros((n, n), bool)
+
