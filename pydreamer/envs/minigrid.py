@@ -185,4 +185,6 @@ class MiniGrid(gym.Env):
         # Transform from local to global coordinates
         # TODO perf: do without loops
         f_vec = self.env.dir_vec
-      
+        r_vec = self.env.right_vec
+        top_left = self.env.agent_pos + f_vec * (n - 1) - r_vec * (n // 2)
+        for vis_j in range(0, n
