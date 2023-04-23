@@ -190,4 +190,5 @@ class MiniGrid(gym.Env):
         for vis_j in range(0, n):
             for vis_i in range(0, n):
                 abs_i, abs_j = top_left - (f_vec * vis_j) + (r_vec * vis_i)
-   
+                mask[vis_i, vis_j] = (abs_i >= 0 and abs_i < self.env.width and abs_j >= 0 and abs_j < self.env.height)
+           
