@@ -182,3 +182,7 @@ class MiniGrid(gym.Env):
         y = np.zeros((n, n), int)
         mask = np.zeros((n, n), bool)
 
+        # Transform from local to global coordinates
+        # TODO perf: do without loops
+        f_vec = self.env.dir_vec
+      
