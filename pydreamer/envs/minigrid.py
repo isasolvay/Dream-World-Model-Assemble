@@ -197,4 +197,9 @@ class MiniGrid(gym.Env):
 
         return x, y, mask
 
-    @staticmet
+    @staticmethod
+    def render_map(map_, tile_size=16):
+        map_ = MiniGrid.from_categorical(map_)
+
+        # Find and remove special "agent" object
+        agent
