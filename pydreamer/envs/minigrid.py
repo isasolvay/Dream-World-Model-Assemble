@@ -208,4 +208,7 @@ class MiniGrid(gym.Env):
             x, y = x[0], y[0]
             agent_pos = x, y
             agent_dir = map_[x][y][2]
-            map_[x][y] = np.array([1, 0, 0])  # EMP
+            map_[x][y] = np.array([1, 0, 0])  # EMPTY
+
+        grid, vis_mask = gym_minigrid.minigrid.Grid.decode(map_)
+        img = grid.render(tile_size, agent_pos=agent_pos, agent_di
