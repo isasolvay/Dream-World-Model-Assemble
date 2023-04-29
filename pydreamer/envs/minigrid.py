@@ -211,4 +211,12 @@ class MiniGrid(gym.Env):
             map_[x][y] = np.array([1, 0, 0])  # EMPTY
 
         grid, vis_mask = gym_minigrid.minigrid.Grid.decode(map_)
-        img = grid.render(tile_size, agent_pos=agent_pos, agent_di
+        img = grid.render(tile_size, agent_pos=agent_pos, agent_dir=agent_dir, highlight_mask=~vis_mask)
+        return img
+
+    def close(self):
+        pass
+
+
+class MinigridWanderPolicy:
+    def __call__(self,
