@@ -205,4 +205,7 @@ class MiniGrid(gym.Env):
         agent_pos, agent_dir = None, None
         x, y = (map_[:, :, 0] == OBJECT_TO_IDX['agent']).nonzero()
         if len(x) > 0:
-        
+            x, y = x[0], y[0]
+            agent_pos = x, y
+            agent_dir = map_[x][y][2]
+            map_[x][y] = np.array([1, 0, 0])  # EMP
