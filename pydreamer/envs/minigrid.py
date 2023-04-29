@@ -202,4 +202,7 @@ class MiniGrid(gym.Env):
         map_ = MiniGrid.from_categorical(map_)
 
         # Find and remove special "agent" object
-        agent
+        agent_pos, agent_dir = None, None
+        x, y = (map_[:, :, 0] == OBJECT_TO_IDX['agent']).nonzero()
+        if len(x) > 0:
+        
