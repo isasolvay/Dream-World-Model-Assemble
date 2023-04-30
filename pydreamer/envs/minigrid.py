@@ -219,4 +219,7 @@ class MiniGrid(gym.Env):
 
 
 class MinigridWanderPolicy:
-    def __call__(self,
+    def __call__(self, obs) -> Tuple[int, dict]:
+        if obs['image'].shape == (7, 7):
+            (ax, ay) = (3, 6)  # agent is here
+            front =
