@@ -222,4 +222,6 @@ class MinigridWanderPolicy:
     def __call__(self, obs) -> Tuple[int, dict]:
         if obs['image'].shape == (7, 7):
             (ax, ay) = (3, 6)  # agent is here
-            front =
+            front = MiniGrid.GRID_VALUES[obs['image'][ax, ay - 1]]  # front is up
+            left = MiniGrid.GRID_VALUES[obs['image'][ax - 1, ay]]
+            right = Mini
