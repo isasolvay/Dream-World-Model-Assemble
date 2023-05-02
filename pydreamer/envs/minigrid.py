@@ -224,4 +224,6 @@ class MinigridWanderPolicy:
             (ax, ay) = (3, 6)  # agent is here
             front = MiniGrid.GRID_VALUES[obs['image'][ax, ay - 1]]  # front is up
             left = MiniGrid.GRID_VALUES[obs['image'][ax - 1, ay]]
-            right = Mini
+            right = MiniGrid.GRID_VALUES[obs['image'][ax + 1, ay]]
+        elif 'map_centered' in obs:
+            ax = ay = obs['map_centered
