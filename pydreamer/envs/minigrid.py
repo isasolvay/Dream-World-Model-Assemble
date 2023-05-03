@@ -230,4 +230,9 @@ class MinigridWanderPolicy:
             front = MiniGrid.GRID_VALUES[obs['map_centered'][ax, ay - 1]]
             left = MiniGrid.GRID_VALUES[obs['map_centered'][ax - 1, ay]]
             right = MiniGrid.GRID_VALUES[obs['map_centered'][ax + 1, ay]]
+        else:
+            assert False, f'Unsupported observation {obs["image"].shape}'
+
+        empty = [1, 8]  # Empty or goal
+
        
