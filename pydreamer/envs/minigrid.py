@@ -248,4 +248,11 @@ class MinigridWanderPolicy:
             return 0, {}
 
         # Empty right => turn with 10%
-        if right[0] in empty and np.random.
+        if right[0] in empty and np.random.rand() < 0.10:
+            return 1, {}
+
+        # Closed door => open
+        if front[0] == 4 and front[2] == 1:
+            return 5, {}
+
+        #
