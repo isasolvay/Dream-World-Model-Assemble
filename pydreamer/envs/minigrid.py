@@ -255,4 +255,8 @@ class MinigridWanderPolicy:
         if front[0] == 4 and front[2] == 1:
             return 5, {}
 
-        #
+        # Empty or open door => forward
+        if front[0] in empty or (front[0] == 4 and front[2] == 0):
+            return 2, {}
+
+        
