@@ -244,4 +244,8 @@ class MinigridWanderPolicy:
             return 1, {}
 
         # Empty left  => turn with 10%
-        if left[0] 
+        if left[0] in empty and np.random.rand() < 0.10:
+            return 0, {}
+
+        # Empty right => turn with 10%
+        if right[0] in empty and np.random.
