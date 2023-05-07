@@ -265,4 +265,8 @@ class MinigridWanderPolicy:
         if left[0] == 2 and right[0] != 2:
             return 1, {}
 
-        
+        # If wall right and not left => turn left
+        if right[0] == 2 and left[0] != 2:
+            return 0, {}
+
+        # Le
