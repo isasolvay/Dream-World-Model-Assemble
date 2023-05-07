@@ -269,4 +269,8 @@ class MinigridWanderPolicy:
         if right[0] == 2 and left[0] != 2:
             return 0, {}
 
-        # Le
+        # Left-right 50%
+        if np.random.rand() < 0.50:
+            return 0, {}
+        else:
+            return 1, {}
