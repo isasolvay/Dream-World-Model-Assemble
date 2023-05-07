@@ -259,4 +259,10 @@ class MinigridWanderPolicy:
         if front[0] in empty or (front[0] == 4 and front[2] == 0):
             return 2, {}
 
+        # If forward blocked...
+
+        # If wall left and not right => turn right
+        if left[0] == 2 and right[0] != 2:
+            return 1, {}
+
         
