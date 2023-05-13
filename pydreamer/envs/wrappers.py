@@ -11,4 +11,9 @@ import uuid
 
 class DictWrapper(gym.ObservationWrapper):
     def __init__(self, env):
-        super().__init__
+        super().__init__(env)
+        # self.observation_space = ...  # TODO
+
+    def observation(self, obs):
+        if isinstance(obs, dict):
+            return obs  # 
