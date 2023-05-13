@@ -152,3 +152,65 @@ def find_shortest(map, start, goal, step_size=1.0, turn_size=45.0):
     RADIUS = 0.2
     x, y, d = start
     gx, gy = goal
+
+    # Well ok, this is BFS not Dijkstra, technically speaking
+
+    que = []
+    que_ix = 0
+    visited = {}
+    parent = {}
+    parent_action = {}
+
+    p = (x, y, d)
+    key = (round(x * KPREC) / KPREC, round(y * KPREC) / KPREC, round(d * KPREC) / KPREC)
+    que.append(p)
+    visited[key] = True
+    goal_state = None
+
+    while que_ix < len(que):
+        p = que[que_ix]
+        que_ix += 1
+        x, y, d = p
+        if np.sqrt((x - gx) ** 2 + (y - gy) ** 2) < step_size:
+            goal_state = p
+            break
+        for action in range(3):
+            x1, y1, d1 = x, y, d
+            if action == 0:  # turn left
+                d1 = d - turn_size
+                if d1 < -180.0:
+                    d1 += 360.0
+            if action == 1:  # turn right
+                d1 = d + turn_size
+                if d1 > 180.0:
+                    d1 -= 360.0
+            if action == 2:  # forward
+                x1 = x + step_size * np.cos(d / 180 * np.pi)
+                y1 = y + step_size * np.sin(d / 180 * np.pi)
+                # Check wall collision at 4 corners
+                for x2, y2 in [(x1 - RADIUS, y1 - RADIUS), (x1 + RADIUS, y1 - RADIUS), (x1 - RADIUS, y1 + RADIUS), (x1 + RADIUS, y1 + RADIUS)]:
+                    if x2 < 0 or y2 < 0 or x2 >= map.shape[0] or y2 >= map.shape[1] or map[int(x2), int(y2)] == WALL:
+                        x1, y1 = x, y  # wall
+                        break
+            p1 = (x1, y1, d1)
+            key = (round(x1 * KPREC) / KPREC, round(y1 * KPREC) / KPREC, round(d1 * KPREC) / KPREC)
+            if key not in visited:
+                que.append(p1)
+                parent[p1] = p
+                parent_action[p1] = action
+                visited[key] = True
+                assert len(visited) < 100000, 'Runaway Dijkstra?'
+
+    if goal_state is None:
+        return None, None, len(visited)
+
+    path = []
+    actions = []
+    p = goal_state
+    while p in parent_action:
+        path.append(p)
+        actions.append(parent_action[p])
+        p = parent[p]
+    path.reverse()
+    actions.reverse()
+    return actions, path, len(visited)
