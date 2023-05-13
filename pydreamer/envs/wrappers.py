@@ -16,4 +16,8 @@ class DictWrapper(gym.ObservationWrapper):
 
     def observation(self, obs):
         if isinstance(obs, dict):
-            return obs  # 
+            return obs  # Already a dictionary
+        if len(obs.shape) == 1:
+            return {'vecobs': obs}  # Vector env
+        else:
+            return {'image': 
