@@ -20,4 +20,11 @@ class DictWrapper(gym.ObservationWrapper):
         if len(obs.shape) == 1:
             return {'vecobs': obs}  # Vector env
         else:
-            return {'image': 
+            return {'image': obs}  # Image env
+
+
+class TimeLimitWrapper(gym.Wrapper):
+
+    def __init__(self, env, time_limit):
+        super().__init__(env)
+        self.
