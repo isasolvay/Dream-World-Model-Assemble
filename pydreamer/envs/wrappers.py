@@ -27,4 +27,8 @@ class TimeLimitWrapper(gym.Wrapper):
 
     def __init__(self, env, time_limit):
         super().__init__(env)
-        self.
+        self.time_limit = time_limit
+
+    def step(self, action):
+        obs, reward, done, info = self.env.step(action)  # type: ignore
+        self.step_
