@@ -48,3 +48,6 @@ class ActionRewardResetWrapper(gym.Wrapper):
     def __init__(self, env, no_terminal):
         super().__init__(env)
         self.env = env
+        self.no_terminal = no_terminal
+        # Handle environments with one-hot or discrete action, but collect always as one-hot
+        
