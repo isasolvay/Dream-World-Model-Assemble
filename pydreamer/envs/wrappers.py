@@ -43,4 +43,8 @@ class TimeLimitWrapper(gym.Wrapper):
         return self.env.reset()  # type: ignore
 
 
-class
+class ActionRewardResetWrapper(gym.Wrapper):
+
+    def __init__(self, env, no_terminal):
+        super().__init__(env)
+        self.env = env
