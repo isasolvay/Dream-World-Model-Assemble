@@ -36,4 +36,11 @@ class TimeLimitWrapper(gym.Wrapper):
         if self.step_ >= self.time_limit:
             done = True
             info['time_limit'] = True
- 
+        return obs, reward, done, info
+
+    def reset(self):
+        self.step_ = 0
+        return self.env.reset()  # type: ignore
+
+
+class
