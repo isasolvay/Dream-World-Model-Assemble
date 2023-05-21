@@ -50,4 +50,7 @@ class ActionRewardResetWrapper(gym.Wrapper):
         self.env = env
         self.no_terminal = no_terminal
         # Handle environments with one-hot or discrete action, but collect always as one-hot
-        
+        self.action_size = env.action_space.n if hasattr(env.action_space, 'n') else env.action_space.shape[0]
+
+    def step(self, action):
+    
