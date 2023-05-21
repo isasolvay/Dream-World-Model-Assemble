@@ -53,4 +53,6 @@ class ActionRewardResetWrapper(gym.Wrapper):
         self.action_size = env.action_space.n if hasattr(env.action_space, 'n') else env.action_space.shape[0]
 
     def step(self, action):
-    
+        obs, reward, done, info = self.env.step(action)
+        if isinstance(action, int):
+            action_vec = np.zeros(self.action_si
