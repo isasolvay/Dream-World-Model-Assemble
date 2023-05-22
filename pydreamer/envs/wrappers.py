@@ -55,4 +55,7 @@ class ActionRewardResetWrapper(gym.Wrapper):
     def step(self, action):
         obs, reward, done, info = self.env.step(action)
         if isinstance(action, int):
-            action_vec = np.zeros(self.action_si
+            action_vec = np.zeros(self.action_size)
+            action_vec[action] = 1.0
+        else:
+            assert isinstance(action, np.ndarray) and action.shape == (self.acti
