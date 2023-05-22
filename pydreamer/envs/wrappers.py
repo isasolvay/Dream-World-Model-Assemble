@@ -58,4 +58,7 @@ class ActionRewardResetWrapper(gym.Wrapper):
             action_vec = np.zeros(self.action_size)
             action_vec[action] = 1.0
         else:
-            assert isinstance(action, np.ndarray) and action.shape == (self.acti
+            assert isinstance(action, np.ndarray) and action.shape == (self.action_size,), "Wrong one-hot action shape"
+            action_vec = action
+        obs['action'] = action_vec
+        obs['reward'] = np.ar
