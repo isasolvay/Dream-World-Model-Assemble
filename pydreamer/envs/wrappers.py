@@ -63,4 +63,9 @@ class ActionRewardResetWrapper(gym.Wrapper):
         obs['action'] = action_vec
         obs['reward'] = np.array(reward)
         obs['terminal'] = np.array(False if self.no_terminal or 'TimeLimit.truncated' in info or info.get('time_limit') else done)
-      
+        obs['reset'] = np.array(False)
+        return obs, reward, done, info
+
+    def reset(self):
+        obs = self.env.reset()
+        obs['actio
