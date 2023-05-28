@@ -61,4 +61,6 @@ class ActionRewardResetWrapper(gym.Wrapper):
             assert isinstance(action, np.ndarray) and action.shape == (self.action_size,), "Wrong one-hot action shape"
             action_vec = action
         obs['action'] = action_vec
-        obs['reward'] = np.ar
+        obs['reward'] = np.array(reward)
+        obs['terminal'] = np.array(False if self.no_terminal or 'TimeLimit.truncated' in info or info.get('time_limit') else done)
+      
