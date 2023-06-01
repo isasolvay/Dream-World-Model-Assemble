@@ -71,4 +71,12 @@ class ActionRewardResetWrapper(gym.Wrapper):
         obs['action'] = np.zeros(self.action_size)
         obs['reward'] = np.array(0.0)
         obs['terminal'] = np.array(False)
-        obs['reset'] = np.array(Tru
+        obs['reset'] = np.array(True)
+        return obs
+
+
+class CollectWrapper(gym.Wrapper):
+
+    def __init__(self, env):
+        super().__init__(env)
+        self.
