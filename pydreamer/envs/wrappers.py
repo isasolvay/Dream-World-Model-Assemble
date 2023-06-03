@@ -79,4 +79,9 @@ class CollectWrapper(gym.Wrapper):
 
     def __init__(self, env):
         super().__init__(env)
-        self.
+        self.env = env
+        self.episode = []
+
+    def step(self, action):
+        obs, reward, done, info = self.env.step(action)
+        s
