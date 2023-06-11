@@ -87,4 +87,9 @@ class CollectWrapper(gym.Wrapper):
         self.episode.append(obs.copy())
         if done:
             episode = {k: np.array([t[k] for t in self.episode]) for k in self.episode[0]}
-        
+            info['episode'] = episode
+        return obs, reward, done, info
+
+    def reset(self):
+        obs = self.env.reset()
+  
