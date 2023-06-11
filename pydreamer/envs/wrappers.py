@@ -84,4 +84,7 @@ class CollectWrapper(gym.Wrapper):
 
     def step(self, action):
         obs, reward, done, info = self.env.step(action)
-        s
+        self.episode.append(obs.copy())
+        if done:
+            episode = {k: np.array([t[k] for t in self.episode]) for k in self.episode[0]}
+        
