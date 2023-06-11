@@ -92,4 +92,9 @@ class CollectWrapper(gym.Wrapper):
 
     def reset(self):
         obs = self.env.reset()
-  
+        self.episode = [obs.copy()]
+        return obs
+
+
+class OneHotActionWrapper(gym.Wrapper):
+    """Allow to use one-hot action on
