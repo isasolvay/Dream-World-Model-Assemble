@@ -97,4 +97,9 @@ class CollectWrapper(gym.Wrapper):
 
 
 class OneHotActionWrapper(gym.Wrapper):
-    """Allow to use one-hot action on
+    """Allow to use one-hot action on a discrete action environment."""
+
+    def __init__(self, env):
+        super().__init__(env)
+        self.env = env
+        # Note: we don't 
