@@ -102,4 +102,5 @@ class OneHotActionWrapper(gym.Wrapper):
     def __init__(self, env):
         super().__init__(env)
         self.env = env
-        # Note: we don't 
+        # Note: we don't want to change env.action_space to Box(0., 1., (n,)) here,
+        # because then e.g. RandomPolicy starts generating continuous 
