@@ -103,4 +103,9 @@ class OneHotActionWrapper(gym.Wrapper):
         super().__init__(env)
         self.env = env
         # Note: we don't want to change env.action_space to Box(0., 1., (n,)) here,
-        # because then e.g. RandomPolicy starts generating continuous 
+        # because then e.g. RandomPolicy starts generating continuous actions.
+
+    def step(self, action):
+        if not isinstance(action, int):
+            action = action.argmax()
+   
