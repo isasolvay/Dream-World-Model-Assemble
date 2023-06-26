@@ -108,4 +108,12 @@ class OneHotActionWrapper(gym.Wrapper):
     def step(self, action):
         if not isinstance(action, int):
             action = action.argmax()
-   
+        return self.env.step(action)
+
+    def reset(self):
+        return self.env.reset()
+
+
+class RestartOnExceptionWrapper(gym.Wrapper):
+
+    def
