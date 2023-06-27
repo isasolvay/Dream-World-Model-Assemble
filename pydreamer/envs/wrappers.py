@@ -116,4 +116,7 @@ class OneHotActionWrapper(gym.Wrapper):
 
 class RestartOnExceptionWrapper(gym.Wrapper):
 
-    def
+    def __init__(self, constructor: Callable):
+        self.constructor = constructor
+        env = constructor()
+        super().__init__(env)
