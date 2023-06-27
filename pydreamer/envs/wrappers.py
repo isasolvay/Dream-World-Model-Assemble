@@ -120,3 +120,9 @@ class RestartOnExceptionWrapper(gym.Wrapper):
         self.constructor = constructor
         env = constructor()
         super().__init__(env)
+        self.env = env
+        self.last_obs = None
+
+    def step(self, action):
+        try:
+            obs, reward, done, info = se
