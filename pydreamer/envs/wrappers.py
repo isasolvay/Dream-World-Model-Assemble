@@ -125,4 +125,8 @@ class RestartOnExceptionWrapper(gym.Wrapper):
 
     def step(self, action):
         try:
-            obs, reward, done, info = se
+            obs, reward, done, info = self.env.step(action)
+            self.last_obs = obs
+            return obs, reward, done, info
+        except:
+            
