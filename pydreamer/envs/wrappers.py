@@ -129,4 +129,5 @@ class RestartOnExceptionWrapper(gym.Wrapper):
             self.last_obs = obs
             return obs, reward, done, info
         except:
-            
+            exception('Error in env.step() - terminating episode.')
+            # Dummy observation to terminate episode. time_limit=True to not count as ter
