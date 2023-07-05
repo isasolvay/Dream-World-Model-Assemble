@@ -130,4 +130,10 @@ class RestartOnExceptionWrapper(gym.Wrapper):
             return obs, reward, done, info
         except:
             exception('Error in env.step() - terminating episode.')
-            # Dummy observation to terminate episode. time_limit=True to not count as ter
+            # Dummy observation to terminate episode. time_limit=True to not count as terminal
+            return self.last_obs, 0.0, True, dict(time_limit=True)
+
+    def reset(self):
+        while True:
+            try:
+                o
