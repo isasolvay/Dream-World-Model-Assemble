@@ -136,4 +136,8 @@ class RestartOnExceptionWrapper(gym.Wrapper):
     def reset(self):
         while True:
             try:
-                o
+                obs = self.env.reset()
+                self.last_obs = obs
+                return obs
+            except:
+                ex
