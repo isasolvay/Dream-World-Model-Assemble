@@ -140,4 +140,8 @@ class RestartOnExceptionWrapper(gym.Wrapper):
                 self.last_obs = obs
                 return obs
             except:
-                ex
+                exception('Error in env.reset() - recreating env.')
+                try:
+                    self.env.close()
+                except:
+     
