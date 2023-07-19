@@ -148,4 +148,10 @@ class RestartOnExceptionWrapper(gym.Wrapper):
                 try:
                     self.env = self.constructor()
                 except:
-               
+                    pass
+            time.sleep(1)
+
+
+# Wrappers from V3
+class TimeLimit(gym.Wrapper):
+    def __init__(self, env, durati
