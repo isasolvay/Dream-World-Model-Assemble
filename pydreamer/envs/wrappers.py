@@ -144,4 +144,8 @@ class RestartOnExceptionWrapper(gym.Wrapper):
                 try:
                     self.env.close()
                 except:
-     
+                    pass
+                try:
+                    self.env = self.constructor()
+                except:
+               
