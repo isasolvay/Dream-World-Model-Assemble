@@ -154,4 +154,10 @@ class RestartOnExceptionWrapper(gym.Wrapper):
 
 # Wrappers from V3
 class TimeLimit(gym.Wrapper):
-    def __init__(self, env, durati
+    def __init__(self, env, duration):
+        super().__init__(env)
+        self._duration = duration
+        self._step = None
+
+    def step(self, action):
+        assert self._
