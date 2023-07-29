@@ -167,4 +167,12 @@ class TimeLimit(gym.Wrapper):
             done = True
             if "discount" not in info:
                 info["discount"] = np.array(1.0).astype(np.float32)
- 
+            self._step = None
+        return obs, reward, done, info
+
+    def reset(self):
+        self._step = 0
+        return self.env.reset()
+
+
+class NormalizeAct
