@@ -163,4 +163,8 @@ class TimeLimit(gym.Wrapper):
         assert self._step is not None, "Must reset environment."
         obs, reward, done, info = self.env.step(action)
         self._step += 1
-        if self._step
+        if self._step >= self._duration:
+            done = True
+            if "discount" not in info:
+                info["discount"] = np.array(1.0).astype(np.float32)
+ 
