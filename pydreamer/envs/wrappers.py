@@ -175,4 +175,8 @@ class TimeLimit(gym.Wrapper):
         return self.env.reset()
 
 
-class NormalizeAct
+class NormalizeActions(gym.Wrapper):
+    def __init__(self, env):
+        super().__init__(env)
+        self._mask = np.logical_and(
+        
