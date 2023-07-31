@@ -179,4 +179,6 @@ class NormalizeActions(gym.Wrapper):
     def __init__(self, env):
         super().__init__(env)
         self._mask = np.logical_and(
-        
+            np.isfinite(env.action_space.low), np.isfinite(env.action_space.high)
+        )
+        self._low = np.where(self._mask, env.acti
