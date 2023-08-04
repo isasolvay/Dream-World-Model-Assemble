@@ -187,4 +187,7 @@ class NormalizeActions(gym.Wrapper):
     def action_space(self):
         low = np.where(self._mask, -np.ones_like(self._low), self._low)
         high = np.where(self._mask, np.ones_like(self._low), self._high)
-        r
+        return gym.spaces.Box(low, high, dtype=np.float32)
+
+    def step(self, action):
+        original = (action + 1) / 2 * (self._high - self._low) 
