@@ -203,4 +203,7 @@ class OneHotAction(gym.Wrapper):
 
     def action_space(self):
         shape = (self.env.action_space.n,)
-        space = gym.spaces.Box(low=0, h
+        space = gym.spaces.Box(low=0, high=1, shape=shape, dtype=np.float32)
+        space.sample = self._sample_action
+        space.discrete = True
+        return s
