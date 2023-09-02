@@ -206,4 +206,10 @@ class OneHotAction(gym.Wrapper):
         space = gym.spaces.Box(low=0, high=1, shape=shape, dtype=np.float32)
         space.sample = self._sample_action
         space.discrete = True
-        return s
+        return space
+
+    def step(self, action):
+        # index = np.argmax(action).astype(int)
+        # reference = np.zeros_like(action)
+        # reference[index] = 1
+        
