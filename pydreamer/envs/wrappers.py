@@ -212,4 +212,7 @@ class OneHotAction(gym.Wrapper):
         # index = np.argmax(action).astype(int)
         # reference = np.zeros_like(action)
         # reference[index] = 1
-        
+        if not isinstance(action, int):
+            action = action.argmax()
+        return self.env.step(action)
+        # if not np.allclose(reference, act
