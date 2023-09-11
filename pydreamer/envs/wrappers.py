@@ -215,4 +215,9 @@ class OneHotAction(gym.Wrapper):
         if not isinstance(action, int):
             action = action.argmax()
         return self.env.step(action)
-        # if not np.allclose(reference, act
+        # if not np.allclose(reference, action):
+        #     raise ValueError(f"Invalid one-hot action:\n{action}")
+        # return self.env.step(index)
+
+    def reset(self):
+        return self
