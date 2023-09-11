@@ -220,4 +220,9 @@ class OneHotAction(gym.Wrapper):
         # return self.env.step(index)
 
     def reset(self):
-        return self
+        return self.env.reset()
+
+    def _sample_action(self):
+        actions = self.env.action_space.n
+        index = self._random.randint(0, actions)
+ 
