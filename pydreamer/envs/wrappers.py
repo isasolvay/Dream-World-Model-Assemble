@@ -225,4 +225,9 @@ class OneHotAction(gym.Wrapper):
     def _sample_action(self):
         actions = self.env.action_space.n
         index = self._random.randint(0, actions)
- 
+        reference = np.zeros(actions, dtype=np.float32)
+        reference[index] = 1.0
+        return reference
+
+
+class RewardO
