@@ -230,4 +230,9 @@ class OneHotAction(gym.Wrapper):
         return reference
 
 
-class RewardO
+class RewardObs(gym.Wrapper):
+    def __init__(self, env):
+        super().__init__(env)
+
+    def observation_space(self):
+        spaces = self.env.observatio
