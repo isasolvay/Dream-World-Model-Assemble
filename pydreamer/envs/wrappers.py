@@ -243,4 +243,9 @@ class RewardObs(gym.Wrapper):
         return gym.spaces.Dict(spaces)
 
     def step(self, action):
-        obs, reward, done, info = self.env.step(a
+        obs, reward, done, info = self.env.step(action)
+        if "reward" not in obs:
+            obs["reward"] = reward
+        return obs, reward, done, info
+
+    def reset
