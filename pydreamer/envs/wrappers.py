@@ -238,4 +238,9 @@ class RewardObs(gym.Wrapper):
         spaces = self.env.observation_space.spaces
         if "reward" not in spaces:
             spaces["reward"] = gym.spaces.Box(
-                -np.inf, np.inf, shape=(1,), dtype
+                -np.inf, np.inf, shape=(1,), dtype=np.float32
+            )
+        return gym.spaces.Dict(spaces)
+
+    def step(self, action):
+        obs, reward, done, info = self.env.step(a
