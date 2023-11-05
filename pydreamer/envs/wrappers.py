@@ -248,4 +248,11 @@ class RewardObs(gym.Wrapper):
             obs["reward"] = reward
         return obs, reward, done, info
 
-    def reset
+    def reset(self):
+        obs = self.env.reset()
+        if "reward" not in obs:
+            obs["reward"] = 0.0
+        return obs
+
+
+class SelectAc
