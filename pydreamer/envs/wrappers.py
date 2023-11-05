@@ -255,4 +255,9 @@ class RewardObs(gym.Wrapper):
         return obs
 
 
-class SelectAc
+class SelectAction(gym.Wrapper):
+    def __init__(self, env, key):
+        super().__init__(env)
+        self._key = key
+
+    def step(self, action)
