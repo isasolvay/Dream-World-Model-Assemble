@@ -266,4 +266,7 @@ class SelectAction(gym.Wrapper):
 
 
 class UUID(gym.Wrapper):
-    de
+    def __init__(self, env):
+        super().__init__(env)
+        timestamp = datetime.datetime.now().strftime("%Y%m%dT%H%M%S")
+        self.id = f
