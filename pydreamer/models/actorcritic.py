@@ -208,3 +208,161 @@ class ActorCritic(nn.Module):
         # Actor loss
         
         #actor_loss
+        loss_actor, act_mets = self._compute_actor_loss(
+            features,
+            actions,
+            value_target,
+            actor_ent,
+            state_ent,
+            reality_weight,
+            base,
+        )
+
+        # policy_distr = self.forward_actor(features[:-1])  # TODO: we could reuse this from dream()
+        # if self._conf.actor_grad == 'reinforce':
+        #     action_logprob = policy_distr.log_prob(actions)
+        #     loss_policy = - action_logprob * advantage_gae.detach()
+        # elif self._conf.actor_grad == 'dynamics':
+        #     # loss_policy = - value_target
+        #     loss_policy=- advantage_gae
+        # else:
+        #     assert False, self._conf.actor_grad
+
+        # policy_entropy = policy_distr.entropy()
+        # loss_actor = loss_policy - self._conf.actor_entropy * policy_entropy
+        # loss_actor = (loss_actor * reality_weight).mean()
+        # assert (loss_policy.requires_grad and loss_policy.requires_grad) or not loss_critic.requires_grad
+
+        with torch.no_grad():
+            metrics = dict(
+                           policy_reward=rewards[:1].mean(),
+                           policy_reward_std=rewards[:1].std(),
+                           )
+            metrics.update(**act_mets,**critic_mets)
+            # tensors = dict(value=value.detach(),
+            #                value_target=value_target.detach(),
+            #                value_advantage=advantage.detach(),
+            #                value_advantage_gae=advantage_gae.detach(),
+            #                value_weight=reality_weight.detach(),
+            #                )
+
+        return (loss_actor, loss_critic), metrics, tensors
+    
+    def _compute_target(
+        self, features, actions, reward, terminal,actor_ent, state_ent
+    ):
+        if self.wm_type=='v2':
+            reward1: TensorHM = reward[1:]
+            terminal0: TensorHM = terminal[:-1]
+            terminal1: TensorHM = terminal[1:]
+            # if self._conf.wm_type=='v3':
+            #     reward1=reward1.squeeze(-1)
+            #     terminal0=terminal0.squeeze(-1)
+            #     terminal1=terminal1.squeeze(-1)
+
+            # GAE from https://arxiv.org/abs/1506.02438 eq (16)
+            #   advantage_gae[t] = advantage[t] + (discount lambda) advantage[t+1] + (discount lambda)^2 advantage[t+2] + ...
+
+            value_t: TensorJM = self._slow_value.forward(features)
+            value0t: TensorHM = value_t[:-1]
+            value1t: TensorHM = value_t[1:]
+            # TD error=r+\discount*V(s')-V(s)
+            advantage = - value0t + reward1 + self._conf.discount * (1.0 - terminal1) * value1t
+            advantage_gae = []
+            agae = None
+            # GAE的累加
+            for adv, term in zip(reversed(advantage.unbind()), reversed(terminal1.unbind())):
+                if agae is None:
+                    agae = adv
+                else:
+                    agae = adv + self._conf.lambda_gae * self._conf.discount * (1.0 - term) * agae
+                advantage_gae.append(agae)
+            advantage_gae.reverse()
+            advantage_gae = torch.stack(advantage_gae)
+            # Note: if lambda=0, then advantage_gae=advantage, then value_target = advantage + value0t = reward + discount * value1t
+            value_target = advantage_gae + value0t
+
+            # When calculating losses, should ignore terminal states, or anything after, so:
+            #   reality_weight[i] = (1-terminal[0]) (1-terminal[1]) ... (1-terminal[i])
+            # Note this takes care of the case when initial state features[0] is terminal - it will get weighted by (1-terminals[0]).
+            # Note that this weights didn't consider discounts
+            reality_weight = (1 - terminal0).log().cumsum(dim=0).exp()
+            return value_target,reality_weight,value0t
+        
+        elif self.wm_type=='v3':
+            ## discount
+            if self._world_model.decoder.terminal is not None:
+                print('terminal exists')
+                # discount = self._conf.discount * self._world_model.decoder.terminal(inp).mean
+                ## 注意现在这里是terminal，不是cont，所以要用1-！
+                discount = self._conf.discount * (1-terminal)
+            else:
+                discount = self._conf.discount * torch.ones_like(reward)
+            ## entropy
+            if self._conf.future_entropy and self._conf.actor_entropy > 0:
+                reward += self._conf.actor_entropy * actor_ent
+            if self._conf.future_entropy and self._conf.actor_state_entropy > 0:
+                reward += self._conf.actor_state_entropy * state_ent
+            #valu_estimator
+            value = self.critic(features).mode()
+            target = lambda_return(
+                reward[1:],
+                value[:-1],
+                discount[1:],
+                bootstrap=value[-1],
+                lambda_=self._conf.lambda_gae,
+                axis=0,
+            )
+            weights = torch.cumprod(
+                torch.cat([torch.ones_like(discount[:1]), discount[:-1]], 0), 0
+            ).detach()
+            return target, weights, value[:-1]
+
+    # def update_critic_target(self):
+    #     self.critic_target.load_state_dict(self.critic.state_dict())  # type: ignore
+    
+    def _compute_actor_loss(
+        self,
+        features,
+        actions,
+        target,
+        actor_ent,
+        state_ent,
+        reality_weight,
+        base,
+    ): 
+        policy_distr = self.forward_actor(features[:-1])
+        actor_metric = {}
+        if self.wm_type=='v2':
+              # TODO: we could reuse this from dream()
+            advantage_gae=target-base
+            if self._conf.actor_grad == 'reinforce':
+                action_logprob = policy_distr.log_prob(actions)
+                loss_policy = - action_logprob * advantage_gae.detach()
+            elif self._conf.actor_grad == 'dynamics':
+                # loss_policy = - value_target
+                loss_policy=- advantage_gae
+            else:
+                assert False, self._conf.actor_grad
+
+            loss_actor = loss_policy - self._conf.actor_entropy * actor_ent
+            loss_actor = (loss_actor * reality_weight).mean()
+        
+        elif self.wm_type=='v3':
+            # Q-val for actor is not transformed using symlog
+            target = torch.stack(target, dim=1)
+            ## 做一些v3特有的处理
+            if self._conf.reward_EMA:
+                offset, scale = self.reward_ema(target)
+                normed_target = (target - offset) / scale
+                normed_base = (base - offset) / scale
+                adv = normed_target - normed_base
+                actor_metric.update(tensorstats(normed_target, "normed_target"))
+                values = self.reward_ema.values
+                actor_metric["EMA_005"] = to_np(values[0])
+                actor_metric["EMA_095"] = to_np(values[1])
+
+            if self._conf.actor_grad == "dynamics":
+                loss_policy = -adv
+            elif self._conf.actor_grad == "reinforce":
+                # actor_target = (
