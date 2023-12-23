@@ -503,3 +503,145 @@ class ActorCritic(nn.Module):
         return adversarial_state
 
     def evaluate_with_adversarial_attack(self, features: TensorJMF):
+        # Create adversarial states
+        features_adv = self.adversarial_attack(features)
+
+        # Feed the adversarial states to the actor and get the actions
+        policy_distr = self.forward_actor(features_adv)
+    
+        # Sample an action from the distribution
+        action = policy_distr.sample()
+    
+        return action
+
+
+class ActorCritic_v3(nn.Module):
+    def __init__(self, conf,world_model,device,stop_grad_actor=True, reward=None):
+        # super(ActorCritic_v3, self).__init__()
+        super().__init__()
+        # self._use_amp = True if conf.precision == 16 else False
+        self._conf = conf
+        self._world_model = world_model
+        self._stop_grad_actor = stop_grad_actor
+        # self._reward = reward
+        # self._discrete=conf.dyn_discrete
+        self._device=device
+        actor_out_dim = conf.action_dim if conf.actor_dist == 'onehot' else 2 * conf.action_dim
+        if conf.dyn_discrete:
+            feat_size = conf.deter_dim + conf.stoch_dim * (conf.stoch_discrete or 1)
+        else:
+            feat_size = conf.deter_dim + conf.stoch_dim
+        hidden_layers=4
+        
+        # 给出actor和critic
+        self.actor = MLP_v2(feat_size, actor_out_dim, 
+                            conf.hidden_dim, hidden_layers, conf.layer_norm)
+        # self.actor = ActionHead(
+        #     feat_size,
+        #     conf.action_dim,
+        #     conf.actor_layers,
+        #     conf.units,
+        #     conf.act,
+        #     conf.norm,
+        #     conf.actor_dist,
+        #     conf.actor_init_std,
+        #     conf.actor_min_std,
+        #     conf.actor_max_std,
+        #     conf.actor_temp,
+        #     outscale=1.0,
+        #     unimix_ratio=conf.action_unimix_ratio,
+        # )
+        if conf.value_head == "symlog_disc":
+            self.critic = MLP_v3(
+                feat_size,
+                (255,),
+                conf.value_layers,
+                conf.units,
+                conf.act,
+                conf.norm,
+                conf.value_head,
+                outscale=0.0,
+                device=self._device,
+            )
+        else:
+            self.critic = MLP_v3(
+                feat_size,
+                [],
+                conf.value_layers,
+                conf.units,
+                conf.act,
+                conf.norm,
+                conf.value_head,
+                outscale=0.0,
+                device=self._device,
+            )
+        if conf.slow_value_target:
+            self._slow_value = copy.deepcopy(self.critic)
+            self._updates = 0
+        # kw = dict(wd=conf.weight_decay, opt=conf.opt, use_amp=self._use_amp)
+        # self._actor_opt = Optimizer(
+        #     "actor",
+        #     self.actor.parameters(),
+        #     conf.actor_lr,
+        #     conf.ac_opt_eps,
+        #     conf.actor_grad_clip,
+        #     **kw,
+        # )
+        # self._value_opt = Optimizer(
+        #     "value",
+        #     self.value.parameters(),
+        #     conf.value_lr,
+        #     conf.ac_opt_eps,
+        #     conf.value_grad_clip,
+        #     **kw,
+        # )
+        if self._conf.reward_EMA:
+            self.reward_ema = RewardEMA(device=self._device)
+    
+    def forward_actor(self, features: Tensor) -> D.Distribution:
+        y = self.actor.forward(features).float()  # .float() to force float32 on AMP
+        
+        if self._conf.actor_dist == 'onehot':
+            return D.OneHotCategorical(logits=y)
+        
+        if self._conf.actor_dist == 'normal_tanh':
+            return normal_tanh(y)
+
+        if self._conf.actor_dist == 'tanh_normal':
+            return tanh_normal(y)
+        print(self._conf.actor_dist)
+
+        assert False, self._conf.actor_dist
+
+    def training_step(
+        self,
+        # start,
+        # action=None,
+        # reward=None,
+        # imagine=None,
+        # tape=None,
+        # repeats=None,
+        features: TensorJMF,
+        actions: TensorHMA,
+        rewards: TensorJM,
+        terminals: TensorJM,
+        # states,
+        objective=None,
+        log_only=False
+    ):
+        # objective = objective or self._reward
+        self._update_slow_target()
+        metrics = {}
+
+        # with RequiresGrad(self.actor):
+        # with torch.cuda.amp.autocast(self._use_amp):
+            # features, states, actions = self._imagine(
+            #     start, self.actor, self._conf.imag_horizon, repeats
+            # )
+            ##这个reward是通过wm送过来的
+            # reward = objective(features, states, actions)
+        actor_ent = self.forward_actor(features[:-1]).entropy()
+        # state_ent = self._world_model.dynamics.get_dist(states).entropy()
+        # 暂时没影响，因为这个现在是0
+        # state_ent=self.get_dist(states).entropy()
+        state_ent=0
