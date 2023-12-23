@@ -366,3 +366,140 @@ class ActorCritic(nn.Module):
                 loss_policy = -adv
             elif self._conf.actor_grad == "reinforce":
                 # actor_target = (
+                #     policy.log_prob(actions)[:, :, None]
+                #     * (target - self.critic(features[:-1]).mode()).detach()
+                # )
+                action_logprob = policy_distr.log_prob(actions)
+                # 注意这里减的是critic，不是slow-critic
+                loss_policy = -action_logprob* (target - self.critic(features[:-1]).mode()).detach()   
+            elif self._conf.actor_grad == "both":
+                # actor_target = (
+                #     # policy.log_prob(actions)[:, :, None]
+                #     policy.log_prob(actions)
+                #     * (target - self.critic(features[:-1]).mode()).detach()
+                # )
+                action_logprob = policy_distr.log_prob(actions)
+                loss_policy = -action_logprob* (target - self.critic(features[:-1]).mode()).detach()
+                mix = self._conf.imag_gradient_mix()
+                # loss_policy = mix * (-target) + (1 - mix) * loss_policy
+                loss_policy = mix * (-adv) + (1 - mix) * loss_policy
+                actor_metric["imag_gradient_mix"] = mix
+            else:
+                raise NotImplementedError(self._conf.actor_grad)
+            if not self._conf.future_entropy and (self._conf.actor_entropy > 0):
+                #第三维度调整
+                # actor_entropy = self._conf.actor_entropy * actor_ent[:, :, None]
+                actor_entropy = self._conf.actor_entropy * actor_ent
+                loss_policy -= actor_entropy
+            if not self._conf.future_entropy and (self._conf.actor_state_entropy > 0):
+                state_entropy = self._conf.actor_state_entropy * state_ent[:-1]
+                loss_policy -= state_entropy
+                actor_metric["actor_state_entropy"] = to_np(torch.mean(state_entropy))
+            loss_actor = torch.mean(reality_weight[:-1] * loss_policy)
+            
+        actor_metric["policy_entropy"] = to_np(torch.mean(actor_ent))
+        actor_metric["loss_actor"] = loss_actor.detach().cpu().numpy()
+        return loss_actor, actor_metric
+        
+    def _compute_critic_loss(
+        self,
+        features,
+        actions,
+        value_target,
+        reality_weight,
+    ): 
+        critic_metric={}
+        # Critic loss
+        if self.wm_type=='v2':
+            value: TensorJM = self.critic.forward(features)
+            value: TensorHM = value[:-1]
+            loss_critic = 0.5 * torch.square(value_target.detach() - value)
+            loss_critic = (loss_critic * reality_weight).mean()
+            critic_metric['policy_value']=value[0].mean().detach().cpu(),  # Value of real states
+            critic_metric['policy_value_im']=value.mean().detach().cpu(),  # Value of imagined states
+        
+        elif self.wm_type=='v3':
+            value = self.critic(features[:-1].detach())
+            value_target = torch.stack(value_target, dim=1)
+            # (time, batch, 1), (time, batch, 1) -> (time, batch)
+            loss_critic = -value.log_prob(value_target.detach())
+            slow_target = self._slow_value(features[:-1].detach())
+            if self._conf.slow_value_target:
+                loss_critic = loss_critic - value.log_prob(
+                    slow_target.mode().detach()
+                )
+            if self._conf.value_decay:
+                loss_critic += self._conf.value_decay * value.mode()
+            # (time, batch, 1), (time, batch, 1) -> (1,)
+            # 第三维度调整
+            # value_loss = torch.mean(weights[:-1] * value_loss[:, :, None])
+            loss_critic = torch.mean(reality_weight[:-1] * loss_critic)
+            # print("loss_critic",value_loss)
+
+            critic_metric.update(tensorstats(value.mode().detach(), "policy_value"))
+            critic_metric.update(tensorstats(value_target, "value_target"))
+            # critic_metric.update(tensorstats(rewards, "imag_reward"))
+            if self._conf.actor_dist in ["onehot"]:
+                critic_metric.update(
+                    tensorstats(
+                        torch.argmax(actions, dim=-1).float(), "actions"
+                    )
+                )
+            else:
+                critic_metric.update(tensorstats(actions, "actions"))
+            
+        # with RequiresGrad(self):
+            # metrics.update(self._actor_opt(actor_loss, self.actor.parameters()))
+            # metrics.update(self._value_opt(value_loss, self.value.parameters()))
+        
+        critic_metric["loss_critic"] =loss_critic.detach().cpu().numpy()
+        # critic_metric["loss_critic"] = value_loss.detach().cpu().numpy()
+        tensors = dict(value=value.mode(),
+                        value_weight=reality_weight.detach(),
+                        )
+        return loss_critic,critic_metric,tensors
+            
+        
+    def _update_slow_target(self):
+        if self._conf.slow_value_target:
+            if self._updates % self._conf.slow_target_update == 0:
+                mix = self._conf.slow_target_fraction
+                for s, d in zip(self.critic.parameters(), self._slow_value.parameters()):
+                    d.data = mix * s.data + (1 - mix) * d.data
+            self._updates += 1
+    
+    
+    def adversarial_attack(self, state, epsilon=0.2, iters=10):
+        # Note that 'state' should be a PyTorch tensor
+        
+        # Create a copy of the state and require gradient computation
+        adversarial_state = state.clone().detach().requires_grad_(True)
+
+        for _ in range(iters):
+            # Zero-out all the gradients
+            self.critic.zero_grad()
+
+            # Compute Q values
+            Q = self.critic(adversarial_state)
+
+            # Compute maximum Q values over actions
+            # Qmax = Q.max(dim=1)[0]
+            # Qmax = Q.max(dim=0)[0]
+
+            # Compute the gradients
+            Q.backward(torch.ones_like(Q))
+
+            # Add an adversarial perturbation
+            with torch.no_grad():
+                
+                adversarial_state += epsilon * adversarial_state.grad.sign()
+
+            # Clamp the adversarial state to the valid range
+            adversarial_state = torch.clamp(adversarial_state, state.min(), state.max())
+
+            # Detach the adversarial state
+            adversarial_state = adversarial_state.detach().requires_grad_(True)
+
+        return adversarial_state
+
+    def evaluate_with_adversarial_attack(self, features: TensorJMF):
