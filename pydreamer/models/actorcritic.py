@@ -784,3 +784,60 @@ class ActorCritic_v3(nn.Module):
         weights,
         base,
     ):
+        metrics = {}
+        inp = features[:-1].detach() if self._stop_grad_actor else features[:-1]
+        policy = self.forward_actor(inp)
+        actor_ent = policy.entropy()
+        # Q-val for actor is not transformed using symlog
+        target = torch.stack(target, dim=1)
+        if self._conf.reward_EMA:
+            offset, scale = self.reward_ema(target)
+            normed_target = (target - offset) / scale
+            normed_base = (base - offset) / scale
+            adv = normed_target - normed_base
+            metrics.update(tensorstats(normed_target, "normed_target"))
+            values = self.reward_ema.values
+            metrics["EMA_005"] = to_np(values[0])
+            metrics["EMA_095"] = to_np(values[1])
+
+        if self._conf.actor_grad == "dynamics":
+            actor_target = adv
+        elif self._conf.actor_grad == "reinforce":
+            # actor_target = (
+            #     policy.log_prob(actions)[:, :, None]
+            #     * (target - self.critic(features[:-1]).mode()).detach()
+            # )
+            actor_target = (
+                policy.log_prob(actions)
+                * (target - self.critic(features[:-1]).mode()).detach()
+            )
+        elif self._conf.actor_grad == "both":
+            actor_target = (
+                # policy.log_prob(actions)[:, :, None]
+                policy.log_prob(actions)
+                * (target - self.critic(features[:-1]).mode()).detach()
+            )
+            mix = self._conf.imag_gradient_mix()
+            actor_target = mix * target + (1 - mix) * actor_target
+            metrics["imag_gradient_mix"] = mix
+        else:
+            raise NotImplementedError(self._conf.actor_grad)
+        if not self._conf.future_entropy and (self._conf.actor_entropy > 0):
+            #第三维度调整
+            # actor_entropy = self._conf.actor_entropy * actor_ent[:, :, None]
+            actor_entropy = self._conf.actor_entropy * actor_ent
+            actor_target += actor_entropy
+        if not self._conf.future_entropy and (self._conf.actor_state_entropy > 0):
+            state_entropy = self._conf.actor_state_entropy * state_ent[:-1]
+            actor_target += state_entropy
+            metrics["actor_state_entropy"] = to_np(torch.mean(state_entropy))
+        actor_loss = -torch.mean(weights[:-1] * actor_target)
+        return actor_loss, metrics
+
+    def _update_slow_target(self):
+        if self._conf.slow_value_target:
+            if self._updates % self._conf.slow_target_update == 0:
+                mix = self._conf.slow_target_fraction
+                for s, d in zip(self.critic.parameters(), self._slow_value.parameters()):
+                    d.data = mix * s.data + (1 - mix) * d.data
+            self._updates += 1
