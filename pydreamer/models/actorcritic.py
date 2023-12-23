@@ -645,3 +645,142 @@ class ActorCritic_v3(nn.Module):
         # 暂时没影响，因为这个现在是0
         # state_ent=self.get_dist(states).entropy()
         state_ent=0
+        # this target is not scaled
+        # slow is flag to indicate whether slow_target is used for lambda-return
+        target, weights, base = self._compute_target(
+            features, actions, rewards, actor_ent, state_ent
+        )
+        
+        #actor_loss
+        actor_loss, mets = self._compute_actor_loss(
+            features,
+            actions,
+            target,
+            actor_ent,
+            state_ent,
+            weights,
+            base,
+        )
+        metrics.update(mets)
+        value_input = features
+
+        # with RequiresGrad(self.critic):
+        # with torch.cuda.amp.autocast(self._use_amp):
+        value = self.critic(value_input[:-1].detach())
+        target = torch.stack(target, dim=1)
+        # (time, batch, 1), (time, batch, 1) -> (time, batch)
+        # value_loss
+        value_loss = -value.log_prob(target.detach())
+        slow_target = self._slow_value(value_input[:-1].detach())
+        if self._conf.slow_value_target:
+            value_loss = value_loss - value.log_prob(
+                slow_target.mode().detach()
+            )
+        if self._conf.value_decay:
+            value_loss += self._conf.value_decay * value.mode()
+        # (time, batch, 1), (time, batch, 1) -> (1,)
+        # 第三维度调整
+        # value_loss = torch.mean(weights[:-1] * value_loss[:, :, None])
+        value_loss = torch.mean(weights[:-1] * value_loss)
+        # print("loss_critic",value_loss)
+
+        metrics.update(tensorstats(value.mode().detach(), "policy_value"))
+        metrics.update(tensorstats(target, "target"))
+        metrics.update(tensorstats(rewards, "imag_reward"))
+        if self._conf.actor_dist in ["onehot"]:
+            metrics.update(
+                tensorstats(
+                    torch.argmax(actions, dim=-1).float(), "actions"
+                )
+            )
+        else:
+            metrics.update(tensorstats(actions, "actions"))
+        metrics["policy_entropy"] = to_np(torch.mean(actor_ent))
+        # with RequiresGrad(self):
+            # metrics.update(self._actor_opt(actor_loss, self.actor.parameters()))
+            # metrics.update(self._value_opt(value_loss, self.value.parameters()))
+        metrics["loss_actor"] = actor_loss.detach().cpu().numpy()
+        metrics["loss_critic"] = value_loss.detach().cpu().numpy()
+        tensors = dict(value=value.mode(),
+                        value_weight=weights.detach(),
+                        )
+        return (actor_loss,value_loss), metrics,tensors
+
+    # def _imagine(self, start, policy, horizon, repeats=None):
+    #     dynamics = self._world_model.dynamics
+    #     if repeats:
+    #         raise NotImplemented("repeats is not implemented in this version")
+    #     flatten = lambda x: x.reshape([-1] + list(x.shape[2:]))
+    #     start = {k: flatten(v) for k, v in start.items()}
+
+    #     def step(prev, _):
+    #         state, _, _ = prev
+    #         feat = dynamics.to_feature(state)
+    #         inp = feat.detach() if self._stop_grad_actor else feat
+    #         action = policy(inp).sample()
+    #         succ = dynamics.img_step(state, action, sample=self._conf.imag_sample)
+    #         return succ, feat, action
+
+    #     succ, feats, actions = static_scan(
+    #         step, [torch.arange(horizon)], (start, None, None)
+    #     )
+    #     states = {k: torch.cat([start[k][None], v[:-1]], 0) for k, v in succ.items()}
+    #     if repeats:
+    #         raise NotImplemented("repeats is not implemented in this version")
+
+    #     return feats, states, actions
+    
+    # def get_dist(self, state, dtype=None):
+    #     if self._conf.discrete:
+    #         logit = state["logit"]
+    #         dist = torchd.independent.Independent(
+    #             OneHotDist(logit, unimix_ratio=self._conf.action_unimix_ratio), 1
+    #         )
+    #     else:
+    #         mean, std = state["mean"], state["std"]
+    #         dist = ContDist(
+    #             torchd.independent.Independent(torchd.normal.Normal(mean, std), 1)
+    #         )
+    #     return dist
+
+    def _compute_target(
+        self, features, actions, reward, actor_ent, state_ent
+    ):
+        ## discount
+        # if "terminal" in self._world_model.heads:
+        #     # print('terminal exxists')
+        #     # inp = self._world_model.dynamics.to_feature(states)
+        #     # discount = self._conf.discount * self._world_model.heads["cont"](inp).mean
+        #     discount = self._conf.discount * self._world_model.heads["terminal"](features).mean
+        # else:
+        discount = self._conf.discount * torch.ones_like(reward)
+        ## entropy
+        if self._conf.future_entropy and self._conf.actor_entropy > 0:
+            reward += self._conf.actor_entropy * actor_ent
+        if self._conf.future_entropy and self._conf.actor_state_entropy > 0:
+            reward += self._conf.actor_state_entropy * state_ent
+        #valu_estimator
+        value = self.critic(features).mode()
+        target = lambda_return(
+            reward[1:],
+            value[:-1],
+            discount[1:],
+            bootstrap=value[-1],
+            lambda_=self._conf.lambda_gae,
+            axis=0,
+        )
+        weights = torch.cumprod(
+            torch.cat([torch.ones_like(discount[:1]), discount[:-1]], 0), 0
+        ).detach()
+        return target, weights, value[:-1]
+
+    def _compute_actor_loss(
+        self,
+        features,
+        actions,
+        target,
+        actor_ent,
+        state_ent,
+        weights,
+        base,
+    ):
