@@ -85,3 +85,142 @@ class WorldModelProbe(nn.Module):
                       do_open_loop=False,
                       do_image_pred=False,
                       do_dream_tensors=False,
+                      ):
+        # World model
+
+        loss_model, features, states, out_state, metrics, tensors = \
+            self.wm.training_step(obs,
+                                  in_state,
+                                  iwae_samples=iwae_samples,
+                                  do_open_loop=do_open_loop,
+                                  do_image_pred=do_image_pred)
+
+        # Probe
+
+        if not self.probe_gradients:
+            features = features.detach()
+        loss_probe, metrics_probe, tensors_probe = self.probe_model.training_step(features, obs)
+        metrics.update(**metrics_probe)
+        tensors.update(**tensors_probe)
+
+        if not self.probe_gradients:
+            losses = (loss_model, loss_probe)
+        else:
+            losses = (loss_model + loss_probe,)
+        return losses, out_state, metrics, tensors, {}
+
+
+class GRUVAEWorldModel(nn.Module):
+
+    def __init__(self, conf):
+        super().__init__()
+        self.state_dim = conf.deter_dim
+        self.out_dim = self.state_dim
+        self.embedding = VAEWorldModel(conf)
+        self.rnn = nn.GRU(self.embedding.out_dim + conf.action_dim, self.state_dim)
+        self.dynamics = DenseNormalDecoder(self.state_dim, self.embedding.out_dim, hidden_layers=2)
+
+    def init_state(self, batch_size: int) -> Any:
+        device = next(self.rnn.parameters()).device
+        return torch.zeros((1, batch_size, self.state_dim), device=device)
+
+    def training_step(self,
+                      obs: Dict[str, Tensor],
+                      in_state: Any,
+                      iwae_samples: int = 1,
+                      do_open_loop=False,
+                      do_image_pred=False,
+                      ):
+
+        # Reset state if needed
+
+        reset_first = obs['reset'].select(0, 0)  # Assume only reset on batch start (allow_mid_reset=False)
+        state_mask = ~reset_first.unsqueeze(0).unsqueeze(-1)
+        in_state = in_state * state_mask
+
+        # VAE embedding
+
+        loss, embed, _, _, metrics, tensors = \
+            self.embedding.training_step(obs, None,
+                                         iwae_samples=iwae_samples,
+                                         do_image_pred=do_image_pred)
+        T, B, I = embed.shape[:3]
+        embed = embed.reshape((T, B * I, -1))  # (T,B,I,*) => (T,BI,*)
+        embed = embed.detach()  # Predict embeddings as they are
+
+        # Embedding + action
+
+        action_next = obs['action_next']
+        embed_act = torch.cat([embed, action_next], -1)
+
+        # RNN
+
+        features, out_state = self.rnn(embed_act, in_state)
+        features = features.reshape((T, B, I, -1))  # (T,BI,*) => (T,B,I,*)
+        out_state = out_state.detach()  # Detach before next batch
+
+        # Predict
+
+        embed_next = embed[1:]
+        _, loss_dyn, embed_pred = self.dynamics.training_step(features[:-1], embed_next)
+        loss += loss_dyn.mean()
+        metrics['loss_dyn'] = loss_dyn.detach().mean()
+        tensors['loss_dyn'] = loss_dyn.detach()
+
+        if do_image_pred:
+            with torch.no_grad():
+                # Decode from embed prediction
+                z = embed_pred
+                z = torch.cat([torch.zeros_like(z[0]).unsqueeze(0), z])  # we don't have prediction for first step, so insert zeros
+                _, mets, tens = self.embedding.decoder.training_step(z.unsqueeze(2), obs, extra_metrics=True)
+                tensors_pred = {k.replace('_rec', '_pred'): v for k, v in tens.items() if k.endswith('_rec')}
+                tensors.update(**tensors_pred)  # image_pred, ..
+
+        return loss, features, None, out_state, metrics, tensors
+
+
+class TransformerVAEWorldModel(nn.Module):
+
+    def __init__(self, conf):
+        super().__init__()
+        self.state_dim = 512
+        self.out_dim = self.state_dim
+        self.embedding = VAEWorldModel(conf)
+        self.transformer_in = nn.Linear(self.embedding.out_dim + conf.action_dim, 512)
+        self.transformer = nn.TransformerEncoder(
+            # defaults
+            nn.TransformerEncoderLayer(512, nhead=8, dim_feedforward=2048, dropout=0.1),
+            num_layers=6,
+            norm=nn.LayerNorm(512)
+        )
+        self.dynamics = DenseNormalDecoder(self.state_dim, self.embedding.out_dim, hidden_layers=2)
+
+    def init_state(self, batch_size: int) -> Any:
+        return None
+
+    def training_step(self,
+                      obs: Dict[str, Tensor],
+                      in_state: Any,
+                      iwae_samples: int = 1,
+                      do_open_loop=False,
+                      do_image_pred=False,
+                      ):
+        # VAE embedding
+
+        loss, embed, _, _, metrics, tensors = \
+            self.embedding.training_step(obs, None,
+                                         iwae_samples=iwae_samples,
+                                         do_image_pred=do_image_pred)
+        T, B, I = embed.shape[:3]
+        embed = embed.reshape((T, B * I, -1))  # (T,B,I,*) => (T,BI,*)
+        embed = embed.detach()  # Predict embeddings as they are
+        action_next = obs['action_next']
+        embed_act = torch.cat([embed, action_next], -1)
+
+        # TRANSFORMER
+
+        # TODO: maybe scale by  * math.sqrt(self.ninp)
+        # TODO: positional encodding
+        # TODO: masking
+        state_in = self.transformer_in(embed_act)
+        features = self.transformer(state_in)
