@@ -224,3 +224,133 @@ class TransformerVAEWorldModel(nn.Module):
         # TODO: masking
         state_in = self.transformer_in(embed_act)
         features = self.transformer(state_in)
+
+        # Predict
+
+        features = features.reshape((T, B, I, -1))  # (T,BI,*) => (T,B,I,*)
+        embed_next = embed[1:]
+        _, loss_dyn, embed_pred = self.dynamics.training_step(features[:-1], embed_next)
+        loss += loss_dyn.mean()
+        metrics['loss_dyn'] = loss_dyn.detach().mean()
+        tensors['loss_dyn'] = loss_dyn.detach()
+
+        if do_image_pred:
+            with torch.no_grad():
+                # Decode from embed prediction
+                z = embed_pred
+                z = torch.cat([torch.zeros_like(z[0]).unsqueeze(0), z])  # we don't have prediction for first step, so insert zeros
+                _, mets, tens = self.embedding.decoder.training_step(z.unsqueeze(2), obs, extra_metrics=True)
+                tensors_pred = {k.replace('_rec', '_pred'): v for k, v in tens.items() if k.endswith('_rec')}
+                tensors.update(**tensors_pred)  # image_pred, ..
+
+        return loss, features, None, None, metrics, tensors
+
+
+class VAEWorldModel(nn.Module):
+
+    def __init__(self, conf):
+        super().__init__()
+        self.kl_weight = conf.kl_weight
+        self.out_dim = conf.stoch_dim
+        self.encoder = MultiEncoder(conf)
+        self.post_mlp = nn.Sequential(nn.Linear(self.encoder.out_dim, 256),
+                                      nn.ELU(),
+                                      nn.Linear(256, 2 * conf.stoch_dim))
+        self.decoder = MultiDecoder(conf.stoch_dim, conf)
+
+    def init_state(self, batch_size: int):
+        return None
+
+    def training_step(self,
+                      obs: Dict[str, Tensor],
+                      in_state: Any = None,
+                      iwae_samples: int = 1,
+                      do_open_loop=False,
+                      do_image_pred=False,
+                      ):
+        # Encode-sample-decode
+
+        embed = self.encoder(obs)
+        post = self.post_mlp(embed)
+        post = insert_dim(post, 2, iwae_samples)
+        post_distr = diag_normal(post)
+        z = post_distr.rsample()
+        loss_reconstr, metrics, tensors = self.decoder.training_step(z, obs)
+
+        # Loss
+
+        prior_distr = diag_normal(torch.zeros_like(post))  # ~ Normal(0,1)
+        loss_kl = D.kl.kl_divergence(post_distr, prior_distr)  # (T,B,I)
+        assert loss_kl.shape == loss_reconstr.shape
+        loss_model_tbi = self.kl_weight * loss_kl + loss_reconstr
+        loss_model = -logavgexp(-loss_model_tbi, dim=2)
+
+        # Metrics
+
+        with torch.no_grad():
+            loss_kl = -logavgexp(-loss_kl, dim=2)
+            entropy_post = post_distr.entropy().mean(dim=2)
+            tensors.update(loss_kl=loss_kl.detach(),
+                           entropy_post=entropy_post)
+            metrics.update(loss_model=loss_model.mean(),
+                           loss_kl=loss_kl.mean(),
+                           entropy_post=entropy_post.mean())
+
+        # Predictions (from unconditioned prior)
+
+        if do_image_pred:
+            with torch.no_grad():
+                # Decode from prior sample
+                zprior = prior_distr.sample()
+                _, mets, tens = self.decoder.training_step(zprior, obs, extra_metrics=True)
+                tensors_pred = {k.replace('_rec', '_pred'): v for k, v in tens.items() if k.endswith('_rec')}
+                tensors.update(**tensors_pred)  # image_pred, ...
+
+        return loss_model.mean(), z, None, None, metrics, tensors
+
+
+
+class GRUEncoderOnly(nn.Module):
+
+    def __init__(self, conf):
+        super().__init__()
+        self.state_dim = conf.deter_dim
+        self.out_dim = self.state_dim
+        self.encoder = MultiEncoder(conf)
+        self.squeeze = nn.Linear(self.encoder.out_dim, 32)
+        self.rnn = nn.GRU(32 + conf.action_dim, self.state_dim)
+
+    def init_state(self, batch_size: int) -> Any:
+        device = next(self.rnn.parameters()).device
+        return torch.zeros((1, batch_size, self.state_dim), device=device)
+
+    def training_step(self,
+                      obs: Dict[str, Tensor],
+                      in_state: Any,
+                      iwae_samples: int = 1,
+                      do_open_loop=False,
+                      do_image_pred=False,
+                      ):
+        assert iwae_samples == 1
+        
+        # Reset state if needed
+
+        reset_first = obs['reset'].select(0, 0)  # Assume only reset on batch start (allow_mid_reset=False)
+        state_mask = ~reset_first.unsqueeze(0).unsqueeze(-1)
+        in_state = in_state * state_mask
+
+        # Encoder
+
+        embed = self.encoder(obs)
+        embed = self.squeeze(embed)  # squeeze to smaller dimension so embedding input doesn't dominate action input
+        action_next = obs['action_next']
+        embed_act = torch.cat([embed, action_next], -1)
+
+        # RNN
+
+        features, out_state = self.rnn(embed_act, in_state)
+        out_state = out_state.detach()  # Detach before next batch
+
+        features = features.unsqueeze(-2)  # Insert I=1 dim
+        loss = 0.0   # This is forward-only
+        return loss, features, None, out_state, {}, {}
