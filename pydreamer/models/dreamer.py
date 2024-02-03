@@ -297,3 +297,144 @@ class Dreamer_agent(nn.Module):
         else:
             losses = (loss_model + loss_probe, loss_actor, loss_critic)
         return losses, out_state, metrics, tensors, dream_tensors
+    
+    def dream_cond_action(self, in_state, actions, dynamics_gradients=False):
+        features = []
+        imag_horizon=actions.shape[0]-1
+        state = in_state
+        self.wm.requires_grad_(False)  # Prevent dynamics gradiens from affecting world model
+
+        ## 如果想设计一些简单的任务，比如说一直往左转，那么可以在这里修改action的选取
+        for i in range(imag_horizon):
+            feature = self.wm.dynamics.to_feature(*state)
+            # print(feature.shape)
+            # action_dist = self.ac.forward_actor(feature)
+            # if dynamics_gradients:
+            #     action = action_dist.rsample()
+            # else:
+            #     action = action_dist.sample()
+            features.append(feature)
+            action=actions[i+1,:,:]
+            # When using dynamics gradients, this causes gradients in RSSM, which we don't want.
+            # This is handled in backprop - the optimizer_model will ignore gradients from loss_actor.
+            _, state = self.wm.dynamics.cell.forward_prior(action, None, state)
+
+        feature = self.wm.dynamics.to_feature(*state)
+        features.append(feature)
+        features = torch.stack(features)  # (H+1,TBI,D)
+        # actions = torch.stack(actions)  # (H,TBI,A)
+
+        rewards = self.wm.decoder.reward.forward(features)      # (H+1,TBI)
+        terminals = self.wm.decoder.terminal.forward(features)  # (H+1,TBI)
+
+        self.wm.requires_grad_(True)
+        return features, actions, rewards, terminals
+
+    def dream(self, in_state,imag_horizon: int, dynamics_gradients=False,perturb='None'):
+        features = []
+        actions = []
+        states=[]
+        state = in_state
+        self.wm.requires_grad_(False)  # Prevent dynamics gradiens from affecting world model
+
+        ## 如果想设计一些简单的任务，比如说一直往左转，那么可以在这里修改action的选取
+        for i in range(imag_horizon):
+            feature = self.wm.dynamics.to_feature(*state)
+            if self.wm_type=='v2':
+                action_dist = self.ac.forward_actor(feature)
+            elif self.wm_type=="v3":
+                # feature = self.wm.dynamics.to_feature(state)
+                # feature=torch.cat((state[0], state[1]), -1)
+                action_dist = self.ac.forward_actor(feature)
+            if perturb=='guassian':
+                # Get the batch shape and event shape of the given distribution.
+                batch_shape = action_dist.batch_shape
+                event_shape = action_dist.event_shape
+
+                # Create a new standard normal distribution with the same structure.
+                perturb_dist = torch.distributions.Normal(loc=torch.zeros(*batch_shape, *event_shape), 
+                                                    scale=torch.ones(*batch_shape, *event_shape))
+                # perturb_dist =perturb_dist.to(action_dist.device)
+                action=action_dist.sample()
+                action=action+perturb_dist.sample().to(action.device)
+            ## offline的情况
+            elif perturb=='random_policy':
+                # 需要生成的one-hot向量的形状
+                action_sample=action_dist.sample()
+                tensor_shape = action_sample.shape
+                act_dim=action_sample.shape[1]
+
+                # 生成一个介于[0, 18)的随机整数tensor，形状为(480, 4)
+                random_indices = torch.randint(low=0, high=act_dim, size=(tensor_shape[0],))
+
+                # 使用one_hot函数将随机整数tensor转换为one-hot编码
+                action = F.one_hot(random_indices, num_classes=act_dim).to(torch.float32).to(action_sample.device)
+
+                # 验证one_hot_tensor的形状
+
+            ## '3' means be attacked
+            elif perturb == 'attack_s':
+                # Apply adversarial attack to the feature
+                adversarial_feature = self.ac.adversarial_attack(feature,epsilon=0.2)
+                
+                # Compute action distribution for the adversarial feature
+                action_dist_adv = self.ac.forward_actor(adversarial_feature)
+                
+                # Sample an action from the adversarial action distribution
+                action = action_dist_adv.sample()
+            elif perturb == 'attack_m':
+                # Apply adversarial attack to the feature
+                adversarial_feature = self.ac.adversarial_attack(feature,epsilon=0.8)
+                
+                # Compute action distribution for the adversarial feature
+                action_dist_adv = self.ac.forward_actor(adversarial_feature)
+                
+                # Sample an action from the adversarial action distribution
+                action = action_dist_adv.sample()
+            elif perturb == 'attack_l':
+                # Apply adversarial attack to the feature
+                adversarial_feature = self.ac.adversarial_attack(feature,epsilon=2)
+                
+                # Compute action distribution for the adversarial feature
+                action_dist_adv = self.ac.forward_actor(adversarial_feature)
+                
+                # Sample an action from the adversarial action distribution
+                action = action_dist_adv.sample()
+            elif perturb=='None':
+                if dynamics_gradients:
+                    action = action_dist.rsample()
+                else:
+                    action = action_dist.sample()
+            features.append(feature)
+            actions.append(action)
+            states.append(state)
+            # When using dynamics gradients, this causes gradients in RSSM, which we don't want.
+            # This is handled in backprop - the optimizer_model will ignore gradients from loss_actor.
+            # if self.wm_type=='v2':
+            _, state = self.wm.dynamics.cell.forward_prior(action, None, state)
+            # elif self.wm_type=='v3':
+            #     state=self.wm.dynamics.img_step(state,action)
+
+        # if self.wm_type=='v2':
+            feature = self.wm.dynamics.to_feature(*state)
+                # action_dist = self.ac.forward_actor(feature)
+        # elif self.wm_type=="v3":
+        #         feature = self.wm.dynamics.to_feature(state)
+        #         # feature=torch.cat((state[0], state[1]), -1)
+        #         # action_dist = self.ac.actor(feature)
+        features.append(feature)
+        states.append(state)
+        features = torch.stack(features)  # (H+1,TBI,D)
+        actions = torch.stack(actions)  # (H,TBI,A)
+        # states=torch.stack(states)
+        if self.wm_type=='v2':
+            ##返回的是一个分布
+            rewards = self.wm.decoder.reward.forward(features)      # (H+1,TBI)
+            terminals = self.wm.decoder.terminal.forward(features)  # (H+1,TBI)
+        elif self.wm_type=='v3':
+            # rewards=self.wm.heads["reward"](features)
+            # terminals=self.wm.heads["terminal"](features)
+            rewards = self.wm.decoder.reward.forward(features)      # (H+1,TBI)
+            terminals = self.wm.decoder.terminal.forward(features)  # (H+1,TBI)
+            # # 获取字典中的键
+            # keys =states[0].keys()
