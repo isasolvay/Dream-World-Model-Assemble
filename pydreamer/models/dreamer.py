@@ -438,3 +438,29 @@ class Dreamer_agent(nn.Module):
             terminals = self.wm.decoder.terminal.forward(features)  # (H+1,TBI)
             # # 获取字典中的键
             # keys =states[0].keys()
+
+            # # 为每个键堆叠张量
+            # states = {key: torch.stack([d[key] for d in states]) for key in keys}
+
+        self.wm.requires_grad_(True)
+        return features, actions, rewards, terminals,states
+
+    def __str__(self):
+        # Short representation
+        s = []
+        s.append(f'Model: {param_count(self)} parameters')
+        if self.wm_type=='v2':
+            for submodel in (self.wm.encoder, self.wm.decoder, self.wm.dynamics, self.ac, self.probe_model):
+                if submodel is not None:
+                    s.append(f'  {type(submodel).__name__:<15}: {param_count(submodel)} parameters')
+        elif self.wm_type=="v3":
+            for submodel in (self.wm.encoder, self.wm.decoder, self.wm.dynamics,self.ac):
+                if submodel is not None:
+                    s.append(f'  {type(submodel).__name__:<15}: {param_count(submodel)} parameters')
+        return '\n'.join(s)
+
+    def __repr__(self):
+        # Long representation
+        return super().__repr__()
+
+
