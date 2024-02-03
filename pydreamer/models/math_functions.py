@@ -85,3 +85,77 @@ def init_weights_tf2(m):
         nn.init.xavier_uniform_(m.weight.data)
         if m.bias is not None:
             nn.init.zeros_(m.bias.data)
+    if type(m) == nn.GRUCell or type(m) == rssm_component.GRUCell:
+        nn.init.xavier_uniform_(m.weight_ih.data)
+        nn.init.orthogonal_(m.weight_hh.data)
+        nn.init.zeros_(m.bias_ih.data)
+        nn.init.zeros_(m.bias_hh.data)
+    if type(m) == rssm_component.NormGRUCell or type(m) == rssm_component.NormGRUCellLateReset:
+        nn.init.xavier_uniform_(m.weight_ih.weight.data)
+        nn.init.orthogonal_(m.weight_hh.weight.data)
+
+
+def logavgexp(x: Tensor, dim: int) -> Tensor:
+    if x.size(dim) > 1:
+        # TODO: cast to float32 here for IWAE?
+        return x.logsumexp(dim=dim) - np.log(x.size(dim))
+    else:
+        return x.squeeze(dim)
+
+
+T = TypeVar('T', Tensor, np.ndarray)
+
+
+def map_structure(data: Union[Tuple[T, ...], Dict[str, T]], f: Callable[[T], T]) -> Union[Tuple[T, ...], Dict[str, T]]:
+    # Like tf.nest.map_structure
+    if isinstance(data, tuple):
+        return tuple(f(d) for d in data)
+    elif isinstance(data, dict):
+        return {k: f(v) for k, v in data.items()}
+    else:
+        raise NotImplementedError(type(data))
+
+
+def stack_structure(data: List[Tuple[Tensor, ...]]) -> Tuple[Tensor, ...]:
+    assert isinstance(data[0], tuple), 'Not implemented for other types'
+    n = len(data[0])
+    return tuple(
+        torch.stack([d[i] for d in data])
+        for i in range(n)
+    )
+
+
+def cat_structure_np(datas: List[Dict[str, np.ndarray]]) -> Dict[str, np.ndarray]:
+    assert isinstance(datas[0], dict), 'Not implemented for other types'
+    keys = set(datas[0].keys())
+    for d in datas[1:]:
+        keys.intersection_update(d.keys())
+    return {
+        k: np.concatenate([d[k] for d in datas])
+        for k in keys
+    }
+
+
+def stack_structure_np(datas: Tuple[Dict[str, np.ndarray]]) -> Dict[str, np.ndarray]:
+    assert isinstance(datas[0], dict), 'Not implemented for other types'
+    keys = set(datas[0].keys())
+    for d in datas[1:]:
+        keys.intersection_update(d.keys())
+    return {
+        key: np.stack([d[key] for d in datas])
+        for key in keys
+    }
+
+
+def nanmean(x: Tensor) -> Tensor:
+    return torch.nansum(x) / (~torch.isnan(x)).sum()
+
+
+def clip_rewards_np(x: np.ndarray, type_: Optional[str] = None) -> np.ndarray:
+    if not type_:
+        return x
+    if type_ == 'tanh':
+        return np.tanh(x)
+    if type_ == 'log1p':  # TODO: log1p->symlog 
+        return np.log1p(x)
+    assert False, type_
