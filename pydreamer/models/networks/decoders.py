@@ -434,3 +434,123 @@ class CatImageDecoder(nn.Module):
             prob = F.softmax(output, 1)
             prob = (1.0 - self.min_prob) * prob + self.min_prob * (1.0 / prob.size(1))  # mix with uniform prob
             loss = F.nll_loss(prob.log(), target, reduction='none')
+
+        if len(self.out_shape) == 3:
+            loss = loss.sum(dim=[-1, -2])  # (*,H,W) => (*)
+        assert len(loss.shape) == 1
+        return unflatten_batch(loss, bd)
+
+    def training_step(self, features: TensorTBIF, target: TensorTBCHW) -> Tuple[TensorTBI, TensorTB, TensorTBCHW]:
+        assert len(features.shape) == 4 and len(target.shape) == 5
+        I = features.shape[2]
+        target = insert_dim(target, 2, I)  # Expand target with iwae_samples dim, because features have it
+
+        logits = self.forward(features)
+        loss_tbi = self.loss(logits, target)
+        loss_tb = -logavgexp(-loss_tbi, dim=2)  # TBI => TB
+
+        assert len(logits.shape) == 6   # TBICHW
+        logits = logits - logits.logsumexp(dim=-3, keepdim=True)  # normalize C
+        logits = torch.logsumexp(logits, dim=2)  # aggregate I => TBCHW
+        logits = logits - logits.logsumexp(dim=-3, keepdim=True)  # normalize C again
+        decoded = logits
+
+        assert len(loss_tbi.shape) == 3 and len(decoded.shape) == 5
+        return loss_tbi, loss_tb, decoded
+
+
+class DenseBernoulliDecoder(nn.Module):
+
+    def __init__(self, in_dim, hidden_dim=400, hidden_layers=2, layer_norm=True):
+        super().__init__()
+        self.model = MLP_v2(in_dim, 1, hidden_dim, hidden_layers, layer_norm)
+
+    def forward(self, features: Tensor) -> D.Distribution:
+        y = self.model.forward(features)
+        p = D.Bernoulli(logits=y.float())
+        return p
+
+    def loss(self, output: D.Distribution, target: Tensor) -> Tensor:
+        return -output.log_prob(target)
+
+    def training_step(self, features: TensorTBIF, target: Tensor) -> Tuple[TensorTBI, TensorTB, TensorTB]:
+        assert len(features.shape) == 4
+        I = features.shape[2]
+        target = insert_dim(target, 2, I)  # Expand target with iwae_samples dim, because features have it
+
+        decoded = self.forward(features)
+        loss_tbi = self.loss(decoded, target)
+        loss_tb = -logavgexp(-loss_tbi, dim=2)  # TBI => TB
+        decoded = decoded.mean.mean(dim=2)
+
+        assert len(loss_tbi.shape) == 3
+        assert len(loss_tb.shape) == 2
+        assert len(decoded.shape) == 2
+        return loss_tbi, loss_tb, decoded
+
+
+class DenseNormalDecoder(nn.Module):
+
+    def __init__(self, in_dim, out_dim=1, hidden_dim=400, hidden_layers=2, layer_norm=True, std=0.3989422804):
+        super().__init__()
+        self.model = MLP_v2(in_dim, out_dim, hidden_dim, hidden_layers, layer_norm)
+        self.std = std
+        self.out_dim = out_dim
+
+    def forward(self, features: Tensor) -> D.Distribution:
+        y = self.model.forward(features)
+        p = D.Normal(loc=y, scale=torch.ones_like(y) * self.std)
+        if self.out_dim > 1:
+            p = D.independent.Independent(p, 1)  # Makes p.logprob() sum over last dim
+        return p
+
+    def loss(self, output: D.Distribution, target: Tensor) -> Tensor:
+        var = self.std ** 2  # var cancels denominator, which makes loss = 0.5 (target-output)^2
+        return -output.log_prob(target) * var
+
+    def training_step(self, features: TensorTBIF, target: Tensor) -> Tuple[TensorTBI, TensorTB, Tensor]:
+        assert len(features.shape) == 4
+        I = features.shape[2]
+        target = insert_dim(target, 2, I)  # Expand target with iwae_samples dim, because features have it
+
+        decoded = self.forward(features)
+        loss_tbi = self.loss(decoded, target)
+        loss_tb = -logavgexp(-loss_tbi, dim=2)  # TBI => TB
+        decoded = decoded.mean.mean(dim=2)
+
+        assert len(loss_tbi.shape) == 3
+        assert len(loss_tb.shape) == 2
+        assert len(decoded.shape) == (2 if self.out_dim == 1 else 3)
+        return loss_tbi, loss_tb, decoded
+
+
+class DenseCategoricalSupportDecoder(nn.Module):
+    """
+    Represent continuous variable distribution by discrete set of support values.
+    Useful for reward head, which can be e.g. [-10, 0, 1, 10]
+    """
+
+    def __init__(self, in_dim, support=[0.0, 1.0], hidden_dim=400, hidden_layers=2, layer_norm=True):
+        assert isinstance(support, (list, np.ndarray))
+        super().__init__()
+        self.model = MLP_v2(in_dim, len(support), hidden_dim, hidden_layers, layer_norm)
+        self.support = np.array(support).astype(float)
+        self._support = nn.Parameter(torch.tensor(support).to(torch.float), requires_grad=False)
+
+    def forward(self, features: Tensor) -> D.Distribution:
+        y = self.model.forward(features)
+        p = CategoricalSupport(logits=y.float(), sup=self._support.data)
+        return p
+
+    def loss(self, output: D.Distribution, target: Tensor) -> Tensor:
+        target = self.to_categorical(target)
+        return -output.log_prob(target)
+
+    def to_categorical(self, target: Tensor) -> Tensor:
+        # TODO: should interpolate between adjacent values, like in MuZero
+        distances = torch.square(target.unsqueeze(-1) - self._support)
+        return distances.argmin(-1)
+
+    def training_step(self, features: TensorTBIF, target: Tensor) -> Tuple[TensorTBI, TensorTB, TensorTB]:
+        assert len(features.shape) == 4
+        I = features.shape[2]
