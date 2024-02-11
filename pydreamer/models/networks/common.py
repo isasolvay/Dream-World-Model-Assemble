@@ -309,3 +309,97 @@ class ActionHead(nn.Module):
             dist = ContDist(torchd.gumbel.Gumbel(x, 1 / temp))
         else:
             raise NotImplementedError(self._dist)
+        return dist
+
+
+class GRUCell(nn.Module):
+    def __init__(self, inp_size, size, norm=False, act=torch.tanh, update_bias=-1):
+        super(GRUCell, self).__init__()
+        self._inp_size = inp_size
+        self._size = size
+        self._act = act
+        self._norm = norm
+        self._update_bias = update_bias
+        self._layer = nn.Linear(inp_size + size, 3 * size, bias=False)
+        if norm:
+            self._norm = nn.LayerNorm(3 * size, eps=1e-03)
+
+    @property
+    def state_size(self):
+        return self._size
+
+    def forward(self, inputs, state):
+        state = state[0]  # Keras wraps the state in a list.
+        parts = self._layer(torch.cat([inputs, state], -1))
+        if self._norm:
+            parts = self._norm(parts)
+        reset, cand, update = torch.split(parts, [self._size] * 3, -1)
+        reset = torch.sigmoid(reset)
+        cand = self._act(reset * cand)
+        update = torch.sigmoid(update + self._update_bias)
+        output = update * cand + (1 - update) * state
+        return output, [output]
+
+
+class Conv2dSame(torch.nn.Conv2d):
+    def calc_same_pad(self, i, k, s, d):
+        return max((math.ceil(i / s) - 1) * s + (k - 1) * d + 1 - i, 0)
+
+    def forward(self, x):
+        ih, iw = x.size()[-2:]
+        pad_h = self.calc_same_pad(
+            i=ih, k=self.kernel_size[0], s=self.stride[0], d=self.dilation[0]
+        )
+        pad_w = self.calc_same_pad(
+            i=iw, k=self.kernel_size[1], s=self.stride[1], d=self.dilation[1]
+        )
+
+        if pad_h > 0 or pad_w > 0:
+            x = F.pad(
+                x, [pad_w // 2, pad_w - pad_w // 2, pad_h // 2, pad_h - pad_h // 2]
+            )
+
+        ret = F.conv2d(
+            x,
+            self.weight,
+            self.bias,
+            self.stride,
+            self.padding,
+            self.dilation,
+            self.groups,
+        )
+        return ret
+
+
+class ChLayerNorm(nn.Module):
+    def __init__(self, ch, eps=1e-03):
+        super(ChLayerNorm, self).__init__()
+        self.norm = torch.nn.LayerNorm(ch, eps=eps)
+
+    def forward(self, x):
+        x = x.permute(0, 2, 3, 1)
+        x = self.norm(x)
+        x = x.permute(0, 3, 1, 2)
+        return x
+
+
+
+class NoNorm(nn.Module):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__()
+
+    def forward(self, x: Tensor) -> Tensor:
+        return x
+
+
+class CategoricalSupport(D.Categorical):
+
+    def __init__(self, logits, sup):
+        assert logits.shape[-1:] == sup.shape
+        super().__init__(logits=logits)
+        self.sup = sup
+
+    @property
+    def mean(self):
+        return torch.einsum('...i,i->...', self.probs, self.sup)
