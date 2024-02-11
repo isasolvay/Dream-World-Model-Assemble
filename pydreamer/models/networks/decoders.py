@@ -309,3 +309,128 @@ class ConvDecoder_v3(nn.Module):
         kernel_size=4,
         minres=4,
         outscale=1.0,
+        cnn_sigmoid=False,
+    ):
+        super(ConvDecoder_v3, self).__init__()
+        act = getattr(torch.nn, act)
+        norm = getattr(torch.nn, norm)
+        self._shape = shape
+        self._cnn_sigmoid = cnn_sigmoid
+        layer_num = int(np.log2(shape[1]) - np.log2(minres))
+        self._minres = minres
+        self._embed_size = minres**2 * depth * 2 ** (layer_num - 1)
+
+        self._linear_layer = nn.Linear(feat_size, self._embed_size)
+        self._linear_layer.apply(tools_v3.weight_init)
+        in_dim = self._embed_size // (minres**2)
+
+        layers = []
+        h, w = minres, minres
+        for i in range(layer_num):
+            out_dim = self._embed_size // (minres**2) // (2 ** (i + 1))
+            bias = False
+            initializer = tools_v3.weight_init
+            if i == layer_num - 1:
+                out_dim = self._shape[0]
+                act = False
+                bias = True
+                norm = False
+                initializer = tools_v3.uniform_weight_init(outscale)
+
+            if i != 0:
+                in_dim = 2 ** (layer_num - (i - 1) - 2) * depth
+            pad_h, outpad_h = self.calc_same_pad(k=kernel_size, s=2, d=1)
+            pad_w, outpad_w = self.calc_same_pad(k=kernel_size, s=2, d=1)
+            layers.append(
+                nn.ConvTranspose2d(
+                    in_dim,
+                    out_dim,
+                    kernel_size,
+                    2,
+                    padding=(pad_h, pad_w),
+                    output_padding=(outpad_h, outpad_w),
+                    bias=bias,
+                )
+            )
+            if norm:
+                layers.append(ChLayerNorm(out_dim))
+            if act:
+                layers.append(act())
+            [m.apply(initializer) for m in layers[-3:]]
+            h, w = h * 2, w * 2
+
+        self.layers = nn.Sequential(*layers)
+
+    def calc_same_pad(self, k, s, d):
+        val = d * (k - 1) - s + 1
+        pad = math.ceil(val / 2)
+        outpad = pad * 2 - val
+        return pad, outpad
+
+    def forward(self, features, dtype=None):
+        x = self._linear_layer(features)
+        # (batch, time, -1) -> (batch * time, h, w, ch)
+        x = x.reshape(
+            [-1, self._minres, self._minres, self._embed_size // self._minres**2]
+        )
+        # (batch, time, -1) -> (batch * time, ch, h, w)
+        x = x.permute(0, 3, 1, 2)
+        x = self.layers(x)
+        # (batch, time, -1) -> (batch * time, ch, h, w) necessary???
+        mean = x.reshape(features.shape[:-1] + self._shape)
+        # (batch * time, ch, h, w) -> (batch * time, h, w, ch)
+        # mean = mean.permute(0, 1, 3, 4, 2)
+        if self._cnn_sigmoid:
+            mean = F.sigmoid(mean) - 0.5
+        return mean
+
+
+class CatImageDecoder(nn.Module):
+    """Dense decoder for categorical image, e.g. map"""
+
+    def __init__(self, in_dim, out_shape=(33, 7, 7), activation=nn.ELU, hidden_dim=400, hidden_layers=2, layer_norm=True, min_prob=0):
+        super().__init__()
+        self.in_dim = in_dim
+        self.out_shape = out_shape
+        norm = nn.LayerNorm if layer_norm else NoNorm
+        layers = []
+        if hidden_layers >= 1:
+            layers += [
+                nn.Linear(in_dim, hidden_dim),
+                norm(hidden_dim, eps=1e-3),
+                activation()]
+            for _ in range(hidden_layers - 1):
+                layers += [
+                    nn.Linear(hidden_dim, hidden_dim),
+                    norm(hidden_dim, eps=1e-3),
+                    activation()]
+            layers += [
+                nn.Linear(hidden_dim, np.prod(out_shape)),
+                nn.Unflatten(-1, out_shape)]
+        else:  
+            # hidden_layers == 0
+            layers += [
+                nn.Linear(in_dim, np.prod(out_shape)),
+                nn.Unflatten(-1, out_shape)]
+        self.model = nn.Sequential(*layers)
+        self.min_prob = min_prob
+
+    def forward(self, x: Tensor) -> Tensor:
+        x, bd = flatten_batch(x)
+        y = self.model(x)
+        y = unflatten_batch(y, bd)
+        return y
+
+    def loss(self, output: Tensor, target: Tensor) -> Tensor:
+        if len(output.shape) == len(target.shape):
+            target = target.argmax(dim=-3)  # float(*,C,H,W) => int(*,H,W)
+        assert target.dtype == torch.int64, 'Target should be categorical'
+        output, bd = flatten_batch(output, len(self.out_shape))     # (*,C,H,W) => (B,C,H,W)
+        target, _ = flatten_batch(target, len(self.out_shape) - 1)  # (*,H,W) => (B,H,W)
+
+        if self.min_prob == 0:
+            loss = F.nll_loss(F.log_softmax(output, 1), target, reduction='none')  # = F.cross_entropy()
+        else:
+            prob = F.softmax(output, 1)
+            prob = (1.0 - self.min_prob) * prob + self.min_prob * (1.0 / prob.size(1))  # mix with uniform prob
+            loss = F.nll_loss(prob.log(), target, reduction='none')
