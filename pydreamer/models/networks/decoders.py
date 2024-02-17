@@ -554,3 +554,14 @@ class DenseCategoricalSupportDecoder(nn.Module):
     def training_step(self, features: TensorTBIF, target: Tensor) -> Tuple[TensorTBI, TensorTB, TensorTB]:
         assert len(features.shape) == 4
         I = features.shape[2]
+        target = insert_dim(target, 2, I)  # Expand target with iwae_samples dim, because features have it
+
+        decoded = self.forward(features)
+        loss_tbi = self.loss(decoded, target)
+        loss_tb = -logavgexp(-loss_tbi, dim=2)  # TBI => TB
+        decoded = decoded.mean.mean(dim=2)
+
+        assert len(loss_tbi.shape) == 3
+        assert len(loss_tb.shape) == 2
+        assert len(decoded.shape) == 2
+        return loss_tbi, loss_tb, decoded
