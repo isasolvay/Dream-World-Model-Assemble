@@ -238,3 +238,55 @@ class ConvEncoder(nn.Module):
 
     def forward(self, x):
         # if self.wm_type=='v2':
+            #（T,B,C,H,W）→（B*T,C,H,W)
+            x, bd = flatten_batch(x, 3)
+            y = self.layers(x)
+            #（B*T,C,H,W）→（T,B,C,H,W)
+            y = unflatten_batch(y, bd)
+            return y
+        # elif self.wm_type=='v3':
+        #     # # (batch, time, h, w, ch) -> (batch * time, h, w, ch)
+        #     # x = x.reshape((-1,) + tuple(x.shape[-3:]))
+        #     # # (batch * time, h, w, ch) -> (batch * time, ch, h, w)
+        #     # # 因为数据来源于v2，所以已经是ch,h,w了
+        #     # # x = x.permute(0, 3, 1, 2)
+        #     # x = self.layers(x)
+        #     # # (batch * time, ...) -> (batch * time, -1)
+        #     # x = x.reshape([x.shape[0], np.prod(x.shape[1:])])
+        #     # # (batch * time, -1) -> (batch, time, -1)
+        #     # return x.reshape(list(x.shape[:-3]) + [x.shape[-1]])
+        #       #（B,T,C,H,W）→（B*T,C,H,W)
+        #     x, bd = flatten_batch(x, 3)
+        #     y = self.layers(x)
+        #     #（B*T,C,H,W）→（B,T,C,H,W)
+        #     y = unflatten_batch(y, bd)
+        #     return y.reshape(y.shape[0], y.shape[1], -1)
+
+## Add a new symlog for MLP encoder
+class DenseEncoder(nn.Module):
+
+    def __init__(self, in_dim, out_dim=256, activation=nn.ELU, hidden_dim=400, hidden_layers=2, layer_norm=True):
+        super().__init__()
+        self.in_dim = in_dim
+        self.out_dim = out_dim
+        norm = nn.LayerNorm if layer_norm else NoNorm
+        layers = [nn.Flatten()]
+        layers += [
+            nn.Linear(in_dim, hidden_dim),
+            norm(hidden_dim, eps=1e-3),
+            activation()]
+        for _ in range(hidden_layers - 1):
+            layers += [
+                nn.Linear(hidden_dim, hidden_dim),
+                norm(hidden_dim, eps=1e-3),
+                activation()]
+        layers += [
+            nn.Linear(hidden_dim, out_dim),
+            activation()]
+        self.model = nn.Sequential(*layers)
+
+    def forward(self, x):
+        x, bd = flatten_batch(x, 3)
+        y = self.model(x)
+        y = unflatten_batch(y, bd)
+        return y
