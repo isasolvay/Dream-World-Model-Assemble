@@ -200,3 +200,140 @@ class RSSM(nn.Module):
             dist = tools.ContDist(
                 torchd.independent.Independent(torchd.normal.Normal(mean, std), 1)
             )
+        return dist
+
+    def obs_step(self, prev_state, prev_action, embed, reset, sample=True):
+        # if shared is True, prior and post both use same networks(inp_layers, _img_out_layers, _ims_stat_layer)
+        # otherwise, post use different network(_obs_out_layers) with prior[deter] and embed as inputs
+        prev_action *= (1.0 / torch.clip(torch.abs(prev_action), min=1.0)).detach()
+
+        if torch.sum(reset) > 0:
+            reset = reset[:, None]
+            prev_action *= 1.0 - reset
+            init_state = self.initial(len(reset))
+            for key, val in prev_state.items():
+                reset_r = torch.reshape(
+                    reset,
+                    reset.shape + (1,) * (len(val.shape) - len(reset.shape)),
+                )
+                prev_state[key] = (
+                    val * (1.0 - reset_r) + init_state[key] * reset_r
+                )
+
+        prior = self.img_step(prev_state, prev_action, None, sample)
+        if self._shared:
+            post = self.img_step(prev_state, prev_action, embed, sample)
+        else:
+            if self._temp_post:
+                x = torch.cat([prior["deter"], embed], -1)
+            else:
+                x = embed
+            # (batch_size, prior_deter + embed) -> (batch_size, hidden)
+            x = self._obs_out_layers(x)
+            # (batch_size, hidden) -> (batch_size, stoch, discrete_num)
+            stats = self._suff_stats_layer("obs", x)
+            if sample:
+                stoch = self.get_dist(stats).sample()
+            else:
+                stoch = self.get_dist(stats).mode()
+            post = {"stoch": stoch, "deter": prior["deter"], **stats}
+        return post, prior
+
+    # this is used for making future image
+    def img_step(self, prev_state, prev_action, embed=None, sample=True):
+        # (batch, stoch, discrete_num)
+        prev_action *= (1.0 / torch.clip(torch.abs(prev_action), min=1.0)).detach()
+        prev_stoch = prev_state["stoch"]
+        if self._discrete:
+            shape = list(prev_stoch.shape[:-2]) + [self._stoch * self._discrete]
+            # (batch, stoch, discrete_num) -> (batch, stoch * discrete_num)
+            prev_stoch = prev_stoch.reshape(shape)
+        if self._shared:
+            if embed is None:
+                shape = list(prev_action.shape[:-1]) + [self._embed]
+                embed = torch.zeros(shape)
+            # (batch, stoch * discrete_num) -> (batch, stoch * discrete_num + action, embed)
+            x = torch.cat([prev_stoch, prev_action, embed], -1)
+        else:
+            x = torch.cat([prev_stoch, prev_action], -1)
+        # (batch, stoch * discrete_num + action, embed) -> (batch, hidden)
+        x = self._inp_layers(x)
+        for _ in range(self._rec_depth):  # rec depth is not correctly implemented
+            deter = prev_state["deter"]
+            # (batch, hidden), (batch, deter) -> (batch, deter), (batch, deter)
+            x, deter = self._cell(x, [deter])
+            deter = deter[0]  # Keras wraps the state in a list.
+        # (batch, deter) -> (batch, hidden)
+        x = self._img_out_layers(x)
+        # (batch, hidden) -> (batch_size, stoch, discrete_num)
+        stats = self._suff_stats_layer("ims", x)
+        if sample:
+            stoch = self.get_dist(stats).sample()
+        else:
+            stoch = self.get_dist(stats).mode()
+        prior = {"stoch": stoch, "deter": deter, **stats}
+        return prior
+
+    def get_stoch(self, deter):
+        x = self._img_out_layers(deter)
+        stats = self._suff_stats_layer("ims", x)
+        dist = self.get_dist(stats)
+        return dist.mode()
+
+    def _suff_stats_layer(self, name, x):
+        if self._discrete:
+            if name == "ims":
+                x = self._ims_stat_layer(x)
+            elif name == "obs":
+                x = self._obs_stat_layer(x)
+            else:
+                raise NotImplementedError
+            logit = x.reshape(list(x.shape[:-1]) + [self._stoch, self._discrete])
+            return {"logit": logit}
+        else:
+            if name == "ims":
+                x = self._ims_stat_layer(x)
+            elif name == "obs":
+                x = self._obs_stat_layer(x)
+            else:
+                raise NotImplementedError
+            mean, std = torch.split(x, [self._stoch] * 2, -1)
+            mean = {
+                "none": lambda: mean,
+                "tanh5": lambda: 5.0 * torch.tanh(mean / 5.0),
+            }[self._mean_act]()
+            std = {
+                "softplus": lambda: torch.softplus(std),
+                "abs": lambda: torch.abs(std + 1),
+                "sigmoid": lambda: torch.sigmoid(std),
+                "sigmoid2": lambda: 2 * torch.sigmoid(std / 2),
+            }[self._std_act]()
+            std = std + self._min_std
+            return {"mean": mean, "std": std}
+
+    def kl_loss(self, post, prior, free, dyn_scale, rep_scale):
+        kld = torchd.kl.kl_divergence
+        dist = lambda x: self.get_dist(x)
+        sg = lambda x: {k: v.detach() for k, v in x.items()}
+
+        rep_loss = value = kld(
+            dist(post) if self._discrete else dist(post)._dist,
+            dist(sg(prior)) if self._discrete else dist(sg(prior))._dist,
+        )
+        dyn_loss = kld(
+            dist(sg(post)) if self._discrete else dist(sg(post))._dist,
+            dist(prior) if self._discrete else dist(prior)._dist,
+        )
+        rep_loss = torch.mean(torch.clip(rep_loss, min=free))
+        dyn_loss = torch.mean(torch.clip(dyn_loss, min=free))
+        loss = dyn_scale * dyn_loss + rep_scale * rep_loss
+
+        return loss, value, dyn_loss, rep_loss
+
+
+class MultiEncoder(nn.Module):
+    def __init__(
+        self,
+        shapes,
+        mlp_keys,
+        cnn_keys,
