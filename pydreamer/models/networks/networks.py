@@ -486,3 +486,141 @@ class ConvEncoder(nn.Module):
         self,
         input_shape,
         depth=32,
+        act="SiLU",
+        norm="LayerNorm",
+        kernel_size=4,
+        minres=4,
+    ):
+        super(ConvEncoder, self).__init__()
+        act = getattr(torch.nn, act)
+        norm = getattr(torch.nn, norm)
+        h, w, input_ch = input_shape
+        layers = []
+        for i in range(int(np.log2(h) - np.log2(minres))):
+            if i == 0:
+                in_dim = input_ch
+            else:
+                in_dim = 2 ** (i - 1) * depth
+            out_dim = 2**i * depth
+            layers.append(
+                Conv2dSame(
+                    in_channels=in_dim,
+                    out_channels=out_dim,
+                    kernel_size=kernel_size,
+                    stride=2,
+                    bias=False,
+                )
+            )
+            layers.append(ChLayerNorm(out_dim))
+            layers.append(act())
+            h, w = h // 2, w // 2
+
+        self.outdim = out_dim * h * w
+        self.layers = nn.Sequential(*layers)
+        self.layers.apply(tools.weight_init)
+
+    def forward(self, obs):
+        # (batch, time, h, w, ch) -> (batch * time, h, w, ch)
+        x = obs.reshape((-1,) + tuple(obs.shape[-3:]))
+        # (batch * time, h, w, ch) -> (batch * time, ch, h, w)
+        x = x.permute(0, 3, 1, 2)
+        x = self.layers(x)
+        # (batch * time, ...) -> (batch * time, -1)
+        x = x.reshape([x.shape[0], np.prod(x.shape[1:])])
+        # (batch * time, -1) -> (batch, time, -1)
+        return x.reshape(list(obs.shape[:-3]) + [x.shape[-1]])
+
+
+class ConvDecoder(nn.Module):
+    def __init__(
+        self,
+        feat_size,
+        shape=(3, 64, 64),
+        depth=32,
+        act=nn.ELU,
+        norm=nn.LayerNorm,
+        kernel_size=4,
+        minres=4,
+        outscale=1.0,
+        cnn_sigmoid=False,
+    ):
+        super(ConvDecoder, self).__init__()
+        act = getattr(torch.nn, act)
+        norm = getattr(torch.nn, norm)
+        self._shape = shape
+        self._cnn_sigmoid = cnn_sigmoid
+        layer_num = int(np.log2(shape[1]) - np.log2(minres))
+        self._minres = minres
+        self._embed_size = minres**2 * depth * 2 ** (layer_num - 1)
+
+        self._linear_layer = nn.Linear(feat_size, self._embed_size)
+        self._linear_layer.apply(tools.weight_init)
+        in_dim = self._embed_size // (minres**2)
+
+        layers = []
+        h, w = minres, minres
+        for i in range(layer_num):
+            out_dim = self._embed_size // (minres**2) // (2 ** (i + 1))
+            bias = False
+            initializer = tools.weight_init
+            if i == layer_num - 1:
+                out_dim = self._shape[0]
+                act = False
+                bias = True
+                norm = False
+                initializer = tools.uniform_weight_init(outscale)
+
+            if i != 0:
+                in_dim = 2 ** (layer_num - (i - 1) - 2) * depth
+            pad_h, outpad_h = self.calc_same_pad(k=kernel_size, s=2, d=1)
+            pad_w, outpad_w = self.calc_same_pad(k=kernel_size, s=2, d=1)
+            layers.append(
+                nn.ConvTranspose2d(
+                    in_dim,
+                    out_dim,
+                    kernel_size,
+                    2,
+                    padding=(pad_h, pad_w),
+                    output_padding=(outpad_h, outpad_w),
+                    bias=bias,
+                )
+            )
+            if norm:
+                layers.append(ChLayerNorm(out_dim))
+            if act:
+                layers.append(act())
+            [m.apply(initializer) for m in layers[-3:]]
+            h, w = h * 2, w * 2
+
+        self.layers = nn.Sequential(*layers)
+
+    def calc_same_pad(self, k, s, d):
+        val = d * (k - 1) - s + 1
+        pad = math.ceil(val / 2)
+        outpad = pad * 2 - val
+        return pad, outpad
+
+    def forward(self, features, dtype=None):
+        x = self._linear_layer(features)
+        # (batch, time, -1) -> (batch * time, h, w, ch)
+        x = x.reshape(
+            [-1, self._minres, self._minres, self._embed_size // self._minres**2]
+        )
+        # (batch, time, -1) -> (batch * time, ch, h, w)
+        x = x.permute(0, 3, 1, 2)
+        x = self.layers(x)
+        # (batch, time, -1) -> (batch * time, ch, h, w) necessary???
+        mean = x.reshape(features.shape[:-1] + self._shape)
+        # (batch * time, ch, h, w) -> (batch * time, h, w, ch)
+        mean = mean.permute(0, 1, 3, 4, 2)
+        if self._cnn_sigmoid:
+            mean = F.sigmoid(mean) - 0.5
+        return mean
+
+
+class MLP(nn.Module):
+    def __init__(
+        self,
+        inp_dim,
+        shape,
+        layers,
