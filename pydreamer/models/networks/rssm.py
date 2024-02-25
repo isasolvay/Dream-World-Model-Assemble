@@ -37,3 +37,128 @@ class RSSMCore(nn.Module):
         def expand(x):
             # (T,B,X) -> (T,BI,X)
             return x.unsqueeze(2).expand(T, B, I, -1).reshape(T, B * I, -1)
+
+        embeds = expand(embed).unbind(0)     # (T,B,...) => List[(BI,...)]
+        actions = expand(action).unbind(0)
+        reset_masks = expand(~reset.unsqueeze(2)).unbind(0)
+
+        priors = []
+        posts = []
+        states_h = []
+        samples = []
+        (h, z) = in_state
+
+        for i in range(T):
+            if not do_open_loop:
+                post, (h, z) = self.cell.forward(embeds[i], actions[i], reset_masks[i], (h, z))
+            else:
+                post, (h, z) = self.cell.forward_prior(actions[i], reset_masks[i], (h, z))  # open loop: post=prior
+            posts.append(post)
+            states_h.append(h)
+            samples.append(z)
+
+        posts = torch.stack(posts)          # (T,BI,2S)
+        states_h = torch.stack(states_h)    # (T,BI,D)
+        samples = torch.stack(samples)      # (T,BI,S)
+        priors = self.cell.batch_prior(states_h)  # (T,BI,2S)
+        features = self.to_feature(states_h, samples)   # (T,BI,D+S)
+
+        posts = posts.reshape(T, B, I, -1)  # (T,BI,X) => (T,B,I,X)
+        states_h = states_h.reshape(T, B, I, -1)
+        samples = samples.reshape(T, B, I, -1)
+        priors = priors.reshape(T, B, I, -1)
+        states = (states_h, samples)
+        features = features.reshape(T, B, I, -1)
+
+        return (
+            priors,                      # tensor(T,B,I,2S)
+            posts,                       # tensor(T,B,I,2S)
+            samples,                     # tensor(T,B,I,S)
+            features,                    # tensor(T,B,I,D+S)
+            states,
+            (h.detach(), z.detach()),
+        )
+
+    def init_state(self, batch_size):
+        return self.cell.init_state(batch_size)
+
+    def to_feature(self, h: Tensor, z: Tensor) -> Tensor:
+        return torch.cat((h, z), -1)
+
+    def feature_replace_z(self, features: Tensor, z: Tensor):
+        h, _ = features.split([self.cell.deter_dim, z.shape[-1]], -1)
+        return self.to_feature(h, z)
+
+    def zdistr(self, pp: Tensor) -> D.Distribution:
+        return self.cell.zdistr(pp)
+    
+    def kl_loss(self, post, prior, free, dyn_scale, rep_scale):
+        kld = torchd.kl.kl_divergence
+        dist = lambda x: self.get_dist(x)
+        sg = lambda x: {k: v.detach() for k, v in x.items()}
+
+        rep_loss = value = kld(
+            dist(post) if self._discrete else dist(post)._dist,
+            dist(sg(prior)) if self._discrete else dist(sg(prior))._dist,
+        )
+        dyn_loss = kld(
+            dist(sg(post)) if self._discrete else dist(sg(post))._dist,
+            dist(prior) if self._discrete else dist(prior)._dist,
+        )
+        rep_loss = torch.mean(torch.clip(rep_loss, min=free))
+        dyn_loss = torch.mean(torch.clip(dyn_loss, min=free))
+        loss = dyn_scale * dyn_loss + rep_scale * rep_loss
+
+        return loss, value, dyn_loss, rep_loss
+
+
+class RSSMCell(nn.Module):
+
+    def __init__(self, embed_dim, action_dim, deter_dim, stoch_dim, stoch_discrete, hidden_dim, gru_layers, gru_type, layer_norm,tidy):
+        super().__init__()
+        self.stoch_dim = stoch_dim
+        self.stoch_discrete = stoch_discrete
+        self.deter_dim = deter_dim
+        norm = nn.LayerNorm if layer_norm else NoNorm
+
+        self.z_mlp = nn.Linear(stoch_dim * (stoch_discrete or 1), hidden_dim)
+        self.a_mlp = nn.Linear(action_dim, hidden_dim, bias=False)  # No bias, because outputs are added
+        self.in_norm = norm(hidden_dim, eps=1e-3)
+
+        self.gru = rssm_component.GRUCellStack(hidden_dim, deter_dim, gru_layers, gru_type)
+
+        self.prior_mlp_h = nn.Linear(deter_dim, hidden_dim)
+        self.prior_norm = norm(hidden_dim, eps=1e-3)
+        self.prior_mlp = nn.Linear(hidden_dim, stoch_dim * (stoch_discrete or 2))
+
+        self.post_mlp_h = nn.Linear(deter_dim, hidden_dim)
+        self.post_mlp_e = nn.Linear(embed_dim, hidden_dim, bias=False)
+        self.post_norm = norm(hidden_dim, eps=1e-3)
+        self.post_mlp = nn.Linear(hidden_dim, stoch_dim * (stoch_discrete or 2))
+        self.tidy=tidy
+
+    def init_state(self, batch_size):
+        device = next(self.gru.parameters()).device
+        return (
+            torch.zeros((batch_size, self.deter_dim), device=device),
+            torch.zeros((batch_size, self.stoch_dim * (self.stoch_discrete or 1)), device=device),
+        )
+
+    def forward(self,
+                embed: Tensor,                    # tensor(B,E)
+                action: Tensor,                   # tensor(B,A)
+                reset_mask: Tensor,               # tensor(B,1)
+                in_state: Tuple[Tensor, Tensor],
+                ) -> Tuple[Tensor,
+                           Tuple[Tensor, Tensor]]:
+
+        in_h, in_z = in_state
+        in_h = in_h * reset_mask
+        in_z = in_z * reset_mask
+        B = action.shape[0]
+
+        x = self.z_mlp(in_z) + self.a_mlp(action)  # (B,H)
+        x = self.in_norm(x)
+        za = F.elu(x)
+        # h,[h] = self.gru(za, [in_h])                                             # (B, D)
+        h=self.gru(za,in_h)
