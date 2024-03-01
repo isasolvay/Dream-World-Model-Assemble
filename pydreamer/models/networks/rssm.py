@@ -162,3 +162,129 @@ class RSSMCell(nn.Module):
         za = F.elu(x)
         # h,[h] = self.gru(za, [in_h])                                             # (B, D)
         h=self.gru(za,in_h)
+        # changed by xch
+        # print(self.tidy)
+        if self.tidy:
+            x = self.post_mlp_e(embed)
+        else:
+            x = self.post_mlp_h(h) + self.post_mlp_e(embed)
+        x = self.post_norm(x)
+        post_in = F.elu(x)
+        post = self.post_mlp(post_in)                                    # (B, S*S)
+        post_distr = self.zdistr(post)
+        sample = post_distr.rsample().reshape(B, -1)
+
+        return (
+            post,                         # tensor(B, 2*S)
+            (h, sample),                  # tensor(B, D+S+G)
+        )
+
+    def forward_prior(self,
+                      action: Tensor,                   # tensor(B,A)
+                      reset_mask: Optional[Tensor],               # tensor(B,1)
+                      in_state: Tuple[Tensor, Tensor],  # tensor(B,D+S)
+                      ) -> Tuple[Tensor,
+                                 Tuple[Tensor, Tensor]]:
+
+        in_h, in_z = in_state
+        if reset_mask is not None:
+            in_h = in_h * reset_mask
+            in_z = in_z * reset_mask
+
+        B = action.shape[0]
+
+        x = self.z_mlp(in_z) + self.a_mlp(action)  # (B,H)
+        x = self.in_norm(x)
+        za = F.elu(x)
+        h = self.gru(za, in_h)                  # (B, D)
+
+        x = self.prior_mlp_h(h)
+        x = self.prior_norm(x)
+        x = F.elu(x)
+        prior = self.prior_mlp(x)          # (B,2S)
+        prior_distr = self.zdistr(prior)
+        sample = prior_distr.rsample().reshape(B, -1)
+
+        return (
+            prior,                        # (B,2S)
+            (h, sample),                  # (B,D+S)
+        )
+
+    def batch_prior(self,
+                    h: Tensor,     # tensor(T, B, D)
+                    ) -> Tensor:
+        x = self.prior_mlp_h(h)
+        x = self.prior_norm(x)
+        x = F.elu(x)
+        prior = self.prior_mlp(x)  # tensor(B,2S)
+        return prior
+
+    def zdistr(self, pp: Tensor) -> D.Distribution:
+        # pp = post or prior
+        if self.stoch_discrete:
+            logits = pp.reshape(pp.shape[:-1] + (self.stoch_dim, self.stoch_discrete))
+            distr = D.OneHotCategoricalStraightThrough(logits=logits.float())  # NOTE: .float() needed to force float32 on AMP
+            distr = D.independent.Independent(distr, 1)  # This makes d.entropy() and d.kl() sum over stoch_dim
+            return distr
+        else:
+            return diag_normal(pp)
+
+class RSSM(nn.Module):
+    def __init__(
+        self,
+        stoch=30,
+        deter=200,
+        hidden=200,
+        layers_input=1,
+        layers_output=1,
+        rec_depth=1,
+        shared=False,
+        discrete=False,
+        act="SiLU",
+        norm="LayerNorm",
+        mean_act="none",
+        std_act="softplus",
+        temp_post=True,
+        min_std=0.1,
+        cell="gru",
+        unimix_ratio=0.01,
+        initial="learned",
+        num_actions=None,
+        embed=None,
+        device=None,
+    ):
+        super(RSSM, self).__init__()
+        self._stoch = stoch
+        self._deter = deter
+        self._hidden = hidden
+        self._min_std = min_std
+        self._layers_input = layers_input
+        self._layers_output = layers_output
+        self._rec_depth = rec_depth
+        self._shared = shared
+        self._discrete = discrete
+        act = getattr(torch.nn, act)
+        norm = getattr(torch.nn, norm)
+        self._mean_act = mean_act
+        self._std_act = std_act
+        self._temp_post = temp_post
+        self._unimix_ratio = unimix_ratio
+        self._initial = initial
+        self._embed = embed
+        # self._device = device
+
+        inp_layers = []
+        if self._discrete:
+            inp_dim = self._stoch * self._discrete + num_actions
+        else:
+            inp_dim = self._stoch + num_actions
+        if self._shared:
+            inp_dim += self._embed
+        for i in range(self._layers_input):
+            inp_layers.append(nn.Linear(inp_dim, self._hidden, bias=False))
+            inp_layers.append(norm(self._hidden, eps=1e-03))
+            inp_layers.append(act())
+            if i == 0:
+                inp_dim = self._hidden
+        self._inp_layers = nn.Sequential(*inp_layers)
+        self._inp_layers.apply(tools_v3.weight_init)
