@@ -79,3 +79,73 @@ class MapProbeHead(nn.Module):
 
         acc = output.argmax(dim=-3) == target
         if map_seen_mask is None:
+            acc = acc.to(torch.float).mean([-1, -2])
+        else:
+            map_seen_mask, _ = flatten_batch(map_seen_mask, 2)  # (*,H,W)
+            acc = (acc * map_seen_mask).sum([-1, -2]) / map_seen_mask.sum([-1, -2])
+        acc = unflatten_batch(acc, bd)  # (T,B)
+        return acc
+
+
+class GoalsProbe(nn.Module):
+
+    def __init__(self, state_dim, conf):
+        super().__init__()
+        self.decoders = nn.ModuleDict({
+            'goal_direction': DenseNormalDecoder(in_dim=state_dim, out_dim=2, hidden_layers=4, layer_norm=True),
+            'goals_direction': DenseNormalDecoder(in_dim=state_dim, out_dim=conf.goals_size * 2, hidden_layers=4, layer_norm=True),
+        })
+
+    def training_step(self, features: TensorTBIF, obs: Dict[str, Tensor]):
+        loss_total = 0
+        metrics = {}
+        tensors = {}
+        for key, decoder in self.decoders.items():
+            assert isinstance(decoder, DenseNormalDecoder)
+            target = obs[key]
+            _, loss, pred = decoder.training_step(features, target)
+            loss_total += loss.mean()
+            metrics[f'loss_{key}'] = loss.detach().mean()
+            tensors[f'loss_{key}'] = loss.detach()
+            tensors[f'{key}_pred'] = pred.detach()
+
+        # Calculate MSE metrics
+
+        with torch.no_grad():
+            goals = obs['goals_direction']
+            pred = tensors['goals_direction_pred']
+            mse_per_coord = (goals - pred) ** 2  # (T,B,12)
+            mse_per_goal = mse_per_coord.reshape(mse_per_coord.shape[:-1] + (-1, 2)).sum(-1)  # (T,B,6)
+            # This is mean over all goals, average over batch
+            metrics['mse_goals'] = mse_per_goal.mean(-1).mean()
+
+            # Baseline variance, should be equal to mse_goals for a stupid model
+            var_per_coord = goals.reshape((-1, goals.shape[-1])).var(0)
+            var_per_goal = var_per_coord.reshape((-1, 2)).sum(-1)
+            metrics['var_goals'] = var_per_goal.mean()
+
+            log_ranges = [-1, 0, 5, 10, 50, 200, 1000]
+            visage = obs.get('goals_visage')  # "visage" = "visible age" = "steps since last seen"
+            if visage is not None:
+                assert mse_per_goal.shape == visage.shape  # (T,B,6)
+                for i in range(1, len(log_ranges)):
+                    vmin = log_ranges[i-1] + 1
+                    vmax = log_ranges[i]  # inclusive
+                    mask = (vmin <= visage) & (visage <= vmax)
+                    # This is average per goal
+                    metrics[f'mse_goal_age{vmax}'] = nanmean(mse_per_goal * mask / mask)
+
+        return loss_total, metrics, tensors
+
+
+class NoProbeHead(nn.Module):
+
+    def __init__(self):
+        super().__init__()
+        self.dummy = nn.Parameter(torch.zeros(1), requires_grad=True)
+
+    def training_step(self,
+                      features: TensorTBIF,
+                      obs: Dict[str, Tensor],
+                      ):
+        return torch.square(self.dummy), {}, {}
