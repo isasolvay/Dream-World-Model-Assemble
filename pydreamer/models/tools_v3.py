@@ -642,3 +642,127 @@ class Bernoulli:
         return self._dist.rsample(sample_shape)
 
     def log_prob(self, x):
+        _logits = self._dist.base_dist.logits
+        if _logits.shape[-1]==1:
+            _logits=_logits.squeeze(-1)
+        if x.shape[-1]==1:
+            x=x.squeeze(-1)
+        log_probs0 = -F.softplus(_logits)
+        log_probs1 = -F.softplus(-_logits)
+
+        return log_probs0 * (1 - x) + log_probs1 * x
+
+
+class UnnormalizedHuber(torchd.normal.Normal):
+    def __init__(self, loc, scale, threshold=1, **kwargs):
+        super().__init__(loc, scale, **kwargs)
+        self._threshold = threshold
+
+    def log_prob(self, event):
+        return -(
+            torch.sqrt((event - self.mean) ** 2 + self._threshold**2)
+            - self._threshold
+        )
+
+    def mode(self):
+        return self.mean
+
+
+class SafeTruncatedNormal(torchd.normal.Normal):
+    def __init__(self, loc, scale, low, high, clip=1e-6, mult=1):
+        super().__init__(loc, scale)
+        self._low = low
+        self._high = high
+        self._clip = clip
+        self._mult = mult
+
+    def sample(self, sample_shape):
+        event = super().sample(sample_shape)
+        if self._clip:
+            clipped = torch.clip(event, self._low + self._clip, self._high - self._clip)
+            event = event - event.detach() + clipped.detach()
+        if self._mult:
+            event *= self._mult
+        return event
+
+
+class TanhBijector(torchd.Transform):
+    def __init__(self, validate_args=False, name="tanh"):
+        super().__init__()
+
+    def _forward(self, x):
+        return torch.tanh(x)
+
+    def _inverse(self, y):
+        y = torch.where(
+            (torch.abs(y) <= 1.0), torch.clamp(y, -0.99999997, 0.99999997), y
+        )
+        y = torch.atanh(y)
+        return y
+
+    def _forward_log_det_jacobian(self, x):
+        log2 = torch.math.log(2.0)
+        return 2.0 * (log2 - x - torch.softplus(-2.0 * x))
+
+
+def static_scan_for_lambda_return(fn, inputs, start):
+    # last = start
+    last=start
+    indices = range(inputs[0].shape[0])
+    indices = reversed(indices)
+    flag = True
+    for index in indices:
+        # (inputs, pcont) -> (inputs[index], pcont[index])
+        inp = lambda x: (_input[x] for _input in inputs)
+        last = fn(last, *inp(index))
+        if flag:
+            # outputs = last
+            outputs = last.unsqueeze(-1)
+            flag = False
+        else:
+            tmp_last=last.unsqueeze(-1)
+            outputs = torch.cat([outputs, tmp_last], dim=-1)
+    # outputs = torch.reshape(outputs, [outputs.shape[0], outputs.shape[1], 1])
+    outputs = torch.flip(outputs, [1])
+    outputs = torch.unbind(outputs, dim=0)
+    return outputs
+
+
+def lambda_return(reward, value, pcont, bootstrap, lambda_, axis):
+    # Setting lambda=1 gives a discounted Monte Carlo return.
+    # Setting lambda=0 gives a fixed 1-step return.
+    # assert reward.shape.ndims == value.shape.ndims, (reward.shape, value.shape)
+    assert len(reward.shape) == len(value.shape), (reward.shape, value.shape)
+    if isinstance(pcont, (int, float)):
+        pcont = pcont * torch.ones_like(reward)
+    dims = list(range(len(reward.shape)))
+    dims = [axis] + dims[1:axis] + [0] + dims[axis + 1 :]
+    if axis != 0:
+        reward = reward.permute(dims)
+        value = value.permute(dims)
+        pcont = pcont.permute(dims)
+    if bootstrap is None:
+        bootstrap = torch.zeros_like(value[-1])
+    next_values = torch.cat([value[1:], bootstrap[None]], 0)
+    inputs = reward + pcont * next_values * (1 - lambda_)
+    # returns = static_scan(
+    #    lambda agg, cur0, cur1: cur0 + cur1 * lambda_ * agg,
+    #    (inputs, pcont), bootstrap, reverse=True)
+    # reimplement to optimize performance
+    returns = static_scan_for_lambda_return(
+        lambda agg, cur0, cur1: cur0 + cur1 * lambda_ * agg, (inputs, pcont), bootstrap
+    )
+    if axis != 0:
+        returns = returns.permute(dims)
+    return returns
+
+
+class Optimizer:
+    def __init__(
+        self,
+        name,
+        parameters,
+        lr,
+        eps=1e-4,
+        clip=None,
+        wd=None,
