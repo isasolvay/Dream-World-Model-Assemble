@@ -170,3 +170,158 @@ class WorldModel(nn.Module):
         loss_model_tbi = self.kl_weight * loss_kl + loss_reconstr
         loss_model = -logavgexp(-loss_model_tbi, dim=2).mean()
         # loss = loss_model.mean() + self.aux_critic_weight * loss_critic_aux
+
+        # Metrics
+
+        with torch.no_grad():
+            # loss_kl = -logavgexp(-loss_kl_exact, dim=2)  # Log exact KL loss even when using IWAE, it avoids random negative values
+            loss_kl = -logavgexp(-loss_kl, dim=2)
+            entropy_prior = dprior.entropy().mean(dim=2)
+            entropy_post = dpost.entropy().mean(dim=2)
+            tensors.update(loss_kl=loss_kl.detach(),
+                           entropy_prior=entropy_prior,
+                           entropy_post=entropy_post)
+            metrics.update(loss_model=loss_model.mean(),
+                           loss_kl=loss_kl.mean(),
+                           entropy_prior=entropy_prior.mean(),
+                           entropy_post=entropy_post.mean())
+            if self.wm_type=='v3':
+                metrics["kl_free"] = kl_free
+                metrics["dyn_scale"] =dyn_scale
+                metrics["rep_scale"] = rep_scale
+                metrics["loss_dyn"] = to_np(torch.mean(dyn_loss))
+                metrics["loss_rep"] = to_np(torch.mean(rep_loss))
+
+        # Predictions
+
+        if do_image_pred:
+            with torch.no_grad():
+                prior_samples = self.dynamics.zdistr(prior).sample().reshape(post_samples.shape)
+                features_prior = self.dynamics.feature_replace_z(features, prior_samples)
+                # Decode from prior(就是没有看到xt，凭借ht直接给出的预测)
+                _, mets, tens = self.decoder.training_step(features_prior, obs, extra_metrics=True)
+                metrics_logprob = {k.replace('loss_', 'logprob_'): v for k, v in mets.items() if k.startswith('loss_')}
+                tensors_logprob = {k.replace('loss_', 'logprob_'): v for k, v in tens.items() if k.startswith('loss_')}
+                tensors_pred = {k.replace('_rec', '_pred'): v for k, v in tens.items() if k.endswith('_rec')}
+                metrics.update(**metrics_logprob)   # logprob_image, ...
+                tensors.update(**tensors_logprob)  # logprob_image, ...
+                tensors.update(**tensors_pred)  # image_pred, ...
+
+        return loss_model, features, states, out_state, metrics, tensors
+    
+    
+class WorldModel_v3(nn.Module):
+    def __init__(self, obs_space, step, conf,device):
+        # super(WorldModel_v3, self).__init__()
+        super().__init__()
+        self._step = step
+        # self._use_amp = True if conf.precision == 16 else False
+        self._conf = conf
+        shapes = {k: tuple(v.shape) for k, v in obs_space.spaces.items()}
+        self._device=device
+        
+        self.deter_dim = conf.deter_dim
+        self.stoch_dim = conf.stoch_dim
+        self.stoch_discrete = conf.stoch_discrete
+        self.kl_weight = conf.kl_weight
+        self.aux_critic_weight = conf.aux_critic_weight
+        self.kl_balance=conf.kl_balance
+        
+        # Encoder
+        # self.encoder = MultiEncoder_v3(shapes, conf)
+        self.encoder = MultiEncoder_v2(shapes,conf)
+        # RSSM
+        # self.embed_size = self.encoder.out_dim
+        # # self.dynamics = RSSM(
+        # #     conf.dyn_stoch,
+        # #     conf.dyn_deter,
+        # #     conf.dyn_hidden,
+        # #     conf.dyn_input_layers,
+        # #     conf.dyn_output_layers,
+        # #     conf.dyn_rec_depth,
+        # #     conf.dyn_shared,
+        # #     conf.dyn_discrete,
+        # #     conf.act,
+        # #     conf.norm,
+        # #     conf.dyn_mean_act,
+        # #     conf.dyn_std_act,
+        # #     conf.dyn_temp_post,
+        # #     conf.dyn_min_std,
+        # #     conf.dyn_cell,
+        # #     conf.unimix_ratio,
+        # #     conf.initial,
+        # #     #为啥原文件里没有这个
+        # #     # conf.num_actions,
+        # #     conf.action_dim,
+        # #     self.embed_size,
+        # #     conf.device,
+        # # )
+        self.dynamics = RSSMCore(embed_dim=self.encoder.out_dim,
+                             action_dim=conf.action_dim,
+                             deter_dim=conf.deter_dim,
+                             stoch_dim=conf.stoch_dim,
+                             stoch_discrete=conf.stoch_discrete,
+                             hidden_dim=conf.hidden_dim,
+                             gru_layers=conf.gru_layers,
+                             gru_type=conf.gru_type,
+                             layer_norm=conf.layer_norm,
+                             tidy=conf.tidy)
+        # dECODERS FOR IMAGE,REWARDS and counts
+        if conf.dyn_discrete:
+            # features_dim = conf.dyn_stoch * conf.dyn_discrete + conf.dyn_deter
+            features_dim=conf.deter_dim+conf.stoch_dim * (conf.stoch_discrete or 1)
+        else:
+            features_dim = conf.dyn_stoch + conf.dyn_deter
+        self.decoder = MultiDecoder_v2(features_dim, conf)
+        # self.heads = nn.ModuleDict()
+        
+        #     features_dim=conf.deter_dim+conf.stoch_dim
+        # self.heads["decoder"] = MultiDecoder_v3(
+        #     features_dim, shapes, **conf.decoder
+        # )
+        # if conf.reward_head == "symlog_disc":
+        #     self.heads["reward"] = MLP_v3(
+        #         features_dim,  # pytorch version
+        #         (255,),
+        #         conf.reward_layers,
+        #         conf.units,
+        #         conf.act,
+        #         conf.norm,
+        #         dist=conf.reward_head,
+        #         outscale=0.0,
+        #         device=self._device,
+        #     )
+        # else:
+        #     self.heads["reward"] = MLP_v3(
+        #         features_dim,  # pytorch version
+        #         [],
+        #         conf.reward_layers,
+        #         conf.units,
+        #         conf.act,
+        #         conf.norm,
+        #         dist=conf.reward_head,
+        #         outscale=0.0,
+        #         device=self._device,
+        #     )
+        # self.heads["terminal"] = MLP_v3(
+        #     features_dim,  # pytorch version
+        #     [],
+        #     conf.terminal_layers,
+        #     conf.units,
+        #     conf.act,
+        #     conf.norm,
+        #     dist="binary",
+        #     device=self._device,
+        # )
+        # for name in conf.grad_heads:
+        #     assert name in self.heads, name
+        # # self._model_opt = tools_v3.Optimizer(
+        # #     "model",
+        # #     self.parameters(),
+        # #     conf.model_lr,
+        # #     conf.opt_eps,
+        # #     conf.grad_clip,
+        # #     conf.weight_decay,
+        # #     opt=conf.opt,
+        # #     use_amp=self._use_amp,
+        # # )
