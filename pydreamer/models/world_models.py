@@ -325,3 +325,121 @@ class WorldModel_v3(nn.Module):
         # #     opt=conf.opt,
         # #     use_amp=self._use_amp,
         # # )
+        # self._scales = dict(reward=conf.reward_scale, terminal=conf.terminal_scale)
+        
+    def init_state(self, batch_size: int) -> Tuple[Any, Any]:
+        return self.dynamics.init_state(batch_size)
+    
+    def forward(self,
+                obs: Dict[str, Tensor],
+                in_state: Any
+                ):
+        # TODO:v3好像不需要输入state，一开始h和z都是随机initial的；但是v2需要？
+        model_loss,features, states, out_state, metrics, tensors= \
+            self.training_step(obs, in_state,forward_only=True)
+        # out_state={key: tensor[-1] for key, tensor in post.items()}
+        return features, out_state
+
+    def training_step(self,
+                      obs: Dict[str, Tensor],
+                      in_state: Any,
+                      iwae_samples: int = 1,
+                      do_open_loop=False,
+                      do_image_pred=False,
+                      forward_only=False
+                      ):
+        # action (batch_size, batch_length, act_dim)
+        # image (batch_size, batch_length, h, w, ch)
+        # reward (batch_size, batch_length)
+        # discount (batch_size, batch_length)
+        obs = self.preprocess(obs,forward_only=True)
+        # with tools_v3.RequiresGrad(self):
+            # with torch.cuda.amp.autocast(self._use_amp):
+            
+        # Encoder
+        embed = self.encoder(obs)
+        
+        #RSSM
+        
+        # post, prior = self.dynamics.observe(
+        #     embed, data["action"], data["reset"]
+        # )
+        # if forward_only:
+        #     post = {k: v.detach() for k, v in post.items()}
+        #     feat=self.dynamics.to_feature(post)
+        #     return torch.tensor(0.0), feat, post, {}, {},{}
+        
+        prior, post, post_samples, features, states, out_state = \
+            self.dynamics.forward(embed,
+                              obs['action'],
+                              obs['reset'],
+                              in_state,
+                              iwae_samples=iwae_samples,
+                              do_open_loop=do_open_loop)
+
+        if forward_only:
+            return torch.tensor(0.0), features, states, out_state, {}, {}
+        
+        
+        # # Decoder
+        # preds={}
+        # for name, head in self.heads.items():
+        #     grad_head = name in self._conf.grad_heads
+        #     # features = self.dynamics.to_feature(post)
+        #     features = features if grad_head else features.detach()
+        #     features_decoder=features[:,:,0]
+        #     pred = head(features_decoder)
+        #     if type(pred) is dict:
+        #         preds.update(pred)
+        #     else:
+        #         preds[name] = pred
+        loss_reconstr, metrics, tensors = self.decoder.training_step(features, obs)
+        # KL loss
+        kl_free = tools_v3.schedule(self._conf.kl_free, self._step)
+        dyn_scale = tools_v3.schedule(self._conf.dyn_scale, self._step)
+        rep_scale = tools_v3.schedule(self._conf.rep_scale, self._step)
+        # kl_loss, kl_value, dyn_loss, rep_loss = self.dynamics.kl_loss(
+        #     post, prior, kl_free, dyn_scale, rep_scale
+        # )
+        d = self.dynamics.zdistr
+        dprior = d(prior)
+        dpost = d(post)
+        loss_kl_exact = D.kl.kl_divergence(dpost, dprior)
+        if not self.kl_balance:
+                loss_kl = loss_kl_exact
+        else:
+            loss_kl_postgrad = D.kl.kl_divergence(dpost, d(prior.detach()))
+            loss_kl_priograd = D.kl.kl_divergence(d(post.detach()), dprior)
+            # if self.wm_type=='v2':
+            # loss_kl = (1 - self.kl_balance) * loss_kl_postgrad + self.kl_balance * loss_kl_priograd
+            # elif self.wm_type=='v3':
+            # Do a clip
+            rep_loss = torch.clip(loss_kl_postgrad, min=kl_free)
+            dyn_loss = torch.clip(loss_kl_priograd, min=kl_free)
+            loss_kl = dyn_scale * dyn_loss + rep_scale * rep_loss
+            
+       
+                
+        # Decoder Loss
+        # losses = {}
+        # for name, pred in preds.items():
+        #     # pred=pred[:,:,0] ##把iwae sample给去掉
+        #     # I = features.shape[2]
+        #     # target = insert_dim(obs[name], 2, I)  # Expand target with iwae_samples dim, because features have it
+        #     like = pred.log_prob(obs[name])
+        #     losses[name] = -torch.mean(like) * self._scales.get(name, 1.0)
+        
+        # Total loss
+
+        assert loss_kl.shape == loss_reconstr.shape
+        loss_model_tbi = self.kl_weight * loss_kl + loss_reconstr
+        model_loss = -logavgexp(-loss_model_tbi, dim=2).mean()
+        # loss = loss_model.mean() + self.aux_critic_weight * loss_critic_aux
+            
+        # loss_kl=torch.mean(loss_kl)
+        # model_loss = sum(losses.values()) + self.kl_weight * loss_kl
+        # #     metrics = self._model_opt(model_loss, self.parameters())
+        
+        
+        # Metrics
+        with torch.no_grad():
