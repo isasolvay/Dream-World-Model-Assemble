@@ -443,3 +443,120 @@ class WorldModel_v3(nn.Module):
         
         # Metrics
         with torch.no_grad():
+            tensors = {}
+            metrics = {}
+            metrics["loss_model"] = model_loss.detach().cpu().numpy()
+            # metrics.update({f"{name}_loss": to_np(loss) for name, loss in losses.items()})
+            metrics["kl_free"] = kl_free
+            metrics["dyn_scale"] =dyn_scale
+            metrics["rep_scale"] = rep_scale
+            metrics["loss_dyn"] = to_np(torch.mean(dyn_loss))
+            metrics["loss_rep"] = to_np(torch.mean(rep_loss))
+            metrics["loss_kl"] = to_np(torch.mean(loss_kl))
+            # metrics["loss_kl"] = to_np(loss_kl)
+            # v2的东西
+            # entropy_prior = dprior.entropy().mean(dim=2)
+            # entropy_post = dpost.entropy().mean(dim=2)
+            # tensors.update(loss_kl=loss_kl.detach(),
+            #                entropy_prior=entropy_prior,
+            #                entropy_post=entropy_post)
+            # metrics["kl"] = to_np(torch.mean(kl_value))
+        # with torch.cuda.amp.autocast(self._use_amp):
+            # metrics["prior_ent"] = to_np(
+            #     torch.mean(self.dynamics.get_dist(prior).entropy())
+            # )
+            # metrics["post_ent"] = to_np(
+            #     torch.mean(self.dynamics.get_dist(post).entropy())
+            # )
+            # context = dict(
+            #     embed=embed,
+            #     feat=self.dynamics.to_feature(post),
+            #     kl=kl_value,
+            #     postent=self.dynamics.get_dist(post).entropy(),
+            # )
+        # post = {k: v.detach() for k, v in post.items()}
+        # feat=self.dynamics.to_feature(post)
+        
+        # Predictions
+        if do_image_pred:
+            # prior_samples = self.dynamics.zdistr(prior).sample().reshape(post_samples.shape)
+            # features_prior = self.dynamics.feature_replace_z(features, prior_samples)
+            # openl = self.heads["decoder"](features_prior)["image"].mode()
+            # reward_prior = self.heads["reward"](features_prior).mode()
+            # # observed image is given until 5 steps
+            # # model = torch.cat([recon[:5, :6], openl], 0)
+            # model=openl[:,:,0]
+            # # truth = obs["image"] + 0.5
+            # # model = model + 0.5
+            # truth=obs['image']
+            # error = (model - truth + 1.0) / 2.0
+        
+        # train 中已有函数保存original data了
+        # tensors.update(data)
+            # tensors["image_pred"]=model.detach()
+            # tensors["image_error"]=error.detach()
+            with torch.no_grad():
+                prior_samples = self.dynamics.zdistr(prior).sample().reshape(post_samples.shape)
+                features_prior = self.dynamics.feature_replace_z(features, prior_samples)
+                # Decode from prior(就是没有看到xt，凭借ht直接给出的预测)
+                _, mets, tens = self.decoder.training_step(features_prior, obs, extra_metrics=True)
+                metrics_logprob = {k.replace('loss_', 'logprob_'): v for k, v in mets.items() if k.startswith('loss_')}
+                tensors_logprob = {k.replace('loss_', 'logprob_'): v for k, v in tens.items() if k.startswith('loss_')}
+                tensors_pred = {k.replace('_rec', '_pred'): v for k, v in tens.items() if k.endswith('_rec')}
+                metrics.update(**metrics_logprob)   # logprob_image, ...
+                tensors.update(**tensors_logprob)  # logprob_image, ...
+                tensors.update(**tensors_pred)  # image_pred, ...
+        return model_loss,features, states, out_state, metrics,tensors
+
+    def preprocess(self, obs,forward_only=False):
+        obs = obs.copy()
+        obs["image"] = torch.Tensor(obs["image"]) / 255.0 - 0.5
+        # (batch_size, batch_length) -> (batch_size, batch_length, 1)
+        # obs["reward"] = torch.Tensor(obs["reward"]).unsqueeze(-1)
+        obs["reward"] = torch.Tensor(obs["reward"])
+        if "discount" in obs:
+            obs["discount"] *= self._conf.discount
+            # (batch_size, batch_length) -> (batch_size, batch_length, 1) 
+            # obs["discount"] = torch.Tensor(obs["discount"]).unsqueeze(-1)
+            obs["discount"] = torch.Tensor(obs["discount"])
+        if "terminal" in obs:
+            # this label is necessary to train cont_head for Bernoulli操作
+            # obs["terminal"] = torch.Tensor(1.0 - obs["terminal"]).unsqueeze(-1)
+            obs["terminal"] = torch.Tensor(obs["terminal"])
+        else:
+            raise ValueError('"terminal" was not found in observation.')
+        if not forward_only:
+            obs = {k: torch.Tensor(v).to(self._device) for k, v in obs.items()}
+        return obs
+
+    def video_pred(self, data):
+        data = self.preprocess(data)
+        embed = self.encoder(data)
+        states, _ = self.dynamics.observe(
+            embed[:5, :6], data["action"][:5, :6], data["reset"][:5, :6]
+        )
+        recon = self.heads["decoder"](self.dynamics.to_feature(states))["image"].mode()[
+            :5
+        ]
+        reward_post = self.heads["reward"](self.dynamics.to_feature(states)).mode()[:5]
+        # init = {k: v[:, -1] for k, v in states.items()}
+        #init 结构为B*hidden_dim
+        init={k: v[-1,:] for k, v in states.items()}
+        prior = self.dynamics.imagine(data["action"][5:, :6], init)
+        openl = self.heads["decoder"](self.dynamics.to_feature(prior))["image"].mode()
+        reward_prior = self.heads["reward"](self.dynamics.to_feature(prior)).mode()
+        # observed image is given until 5 steps
+        model = torch.cat([recon[:5, :6], openl], 0)
+        truth = data["image"][:,:6] + 0.5
+        # model = model + 0.5
+        error = (model - truth + 1.0) / 2.0
+        
+        tensors={}
+        # train 中已有函数保存original data了
+        # tensors.update(data)
+        tensors["image_dream"]=model
+        tensors["image_error"]=error
+        
+
+        # return torch.cat([truth, model, error], 2)
+        return tensors
