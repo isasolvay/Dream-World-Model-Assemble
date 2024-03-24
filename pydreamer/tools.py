@@ -251,3 +251,121 @@ class Timer:
     def __exit__(self, exc_type, exc_value, exc_traceback):
         self.dt = time.time() - self.start_time  # type: ignore
         # self.times.append(dt)
+        self.start_time = None
+        if self.verbose:
+            self.debug_print(self.dt)
+
+    def debug_print(self, dt):
+        print(f'{self.name:<10}: {int(dt*1000):>5} ms')
+
+    @property
+    def dt_ms(self):
+        return int(self.dt * 1000)
+
+
+class NoProfiler:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        pass
+
+    def step(self):
+        pass
+
+
+def chunk_episode_data(data: Dict[str, np.ndarray], min_length: int):
+    # this n=len(..)-1 and i_to=(...)+1 makes first reset step "free" and correctly chunks 2000 episode into (1001)+(1000)
+    n = len(data['reward']) - 1
+    chunks = n // min_length
+    i_from = 0
+    for i_chunk in range(chunks):
+        i_to = n * (i_chunk + 1) // chunks + 1
+        data_chunk = {key: data[key][i_from:i_to] for key in data}
+        i_from = i_to
+        yield data_chunk
+
+
+class LogColorFormatter(logging.Formatter):
+    # see https://stackoverflow.com/questions/4842424/list-of-ansi-color-escape-sequences
+    GREY = '\033[90m'
+    WHITE = '\033[37m'
+    GREEN = '\033[32m'
+    YELLOW = '\033[33m'
+    RED = '\033[31m'
+    RED_UNDERLINE = '\033[4;31m'
+
+    def __init__(self,
+                 fmt,
+                 debug_color=GREY,
+                 info_color=None,
+                 warning_color=YELLOW,
+                 error_color=RED,
+                 critical_color=RED_UNDERLINE
+                 ):
+        super().__init__(fmt)
+        self.fmt = fmt
+        self.debug_color = debug_color
+        self.info_color = info_color
+        self.warning_color = warning_color
+        self.error_color = error_color
+        self.critical_color = critical_color
+
+    def format(self, record):
+        RESET = '\033[0m'
+        if record.levelno == logging.DEBUG:
+            fmt = f'{self.debug_color or ""}{self.fmt}{RESET}'
+        elif record.levelno == logging.INFO:
+            fmt = f'{self.info_color or ""}{self.fmt}{RESET}'
+        elif record.levelno == logging.WARNING:
+            fmt = f'{self.warning_color or ""}{self.fmt}{RESET}'
+        elif record.levelno == logging.ERROR:
+            fmt = f'{self.error_color or ""}{self.fmt}{RESET}'
+        elif record.levelno == logging.CRITICAL:
+            fmt = f'{self.critical_color or ""}{self.fmt}{RESET}'
+        else:
+            fmt = self.fmt
+        return logging.Formatter(fmt).format(record)
+
+
+def configure_logging(prefix='[%(name)s]', level=logging.DEBUG, info_color=None):
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(level)
+    handler.setFormatter(LogColorFormatter(
+        f'{prefix}  %(message)s',
+        info_color=info_color
+    ))
+    logging.root.setLevel(level)
+    logging.root.handlers = [handler]
+    for logname in ['urllib3', 'requests', 'mlflow', 'git', 'azure', 'PIL', 'numba', 'google.auth']:
+        logging.getLogger(logname).setLevel(logging.WARNING)  # disable other loggers
+    for logname in ['absl', 'minerl']:
+        logging.getLogger(logname).setLevel(logging.INFO)
+
+
+def tensorboard_trace_handler(dir_name: str, worker_name: Optional[str] = None, use_gzip: bool = False):
+    """Forked from: torch.profiler.profiler.tensorboard_trace_handler.
+
+    Outputs tracing files to directory of ``dir_name``, then that directory can be
+    directly delivered to tensorboard as logdir.
+    ``worker_name`` should be unique for each worker in distributed scenario,
+    it will be set to '[hostname]_[pid]' by default.
+    """
+    import os
+    import socket
+    import time
+    import mlflow
+
+    def handler_fn(prof) -> None:
+        nonlocal worker_name
+        if not os.path.isdir(dir_name):
+            try:
+                os.makedirs(dir_name, exist_ok=True)
+            except Exception:
+                raise RuntimeError("Can't create directory: " + dir_name)
+        if not worker_name:
+            worker_name = "{}_{}".format(socket.gethostname(), str(os.getpid()))
+        file_name = "{}.{}.pt.trace.json".format(worker_name, int(time.time() * 1000))
+        if use_gzip:
+            file_name = file_name + '.gz'
+        path = os.path.join(dir_name, file_name)
