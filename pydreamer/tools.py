@@ -104,3 +104,150 @@ def mlflow_log_params(params: dict):
     MAX_VALUE_LENGTH = 250
     MAX_BATCH_SIZE = 100
     kvs = [
+        (str(k), str(v))
+        for k, v in params.items()
+        if 1 <= len(str(v)) <= MAX_VALUE_LENGTH  # Filter out too long values. Also filter out empty strings, for some reason causes INVALID_PARAMETER_VALUE
+    ]
+    for i in range(0, len(kvs), MAX_BATCH_SIZE):  # log_params() allows max 100 items
+        try:
+            params_batch = dict(kvs[i:i + MAX_BATCH_SIZE])
+            mlflow.log_params(params_batch)
+        except Exception as e:
+            # This happens when resuming and config has different parameters - it's fine
+            exception('Error in mlflow.log_params (it is ok if params changed).')
+
+
+def mlflow_log_metrics(metrics: dict, step: int):
+    import mlflow
+    while True:
+        try:
+            mlflow.log_metrics(metrics, step=step)
+            break
+        except:
+            exception('Error logging metrics - will retry.')
+            time.sleep(10)
+
+
+def mlflow_log_npz(data: dict, name, subdir=None, verbose=False, repository: ArtifactRepository = None):
+    import mlflow
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = Path(tmpdir) / name
+        save_npz(data, path)
+        mlflow_log_artifact(path, subdir, verbose, repository)
+
+
+def mlflow_log_artifact(path: Path, subdir=None, verbose=True, repository: ArtifactRepository = None):
+    import mlflow
+    if verbose:
+        debug(f'Uploading artifact {subdir}/{path.name} size {path.stat().st_size/1024/1024:.2f} MB')
+    while True:
+        try:
+            if repository:
+                repository.log_artifact(str(path), artifact_path=subdir)
+            else:
+                mlflow.log_artifact(str(path), artifact_path=subdir)
+            break
+        except:
+            exception('Error saving artifact - will retry.')
+            time.sleep(10)
+
+
+def mlflow_load_npz(name, repository: ArtifactRepository):
+    import mlflow
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpfile = Path(tmpdir) / name
+        repository._download_file(name, tmpfile)  # TODO: avoid writing to disk - make sure tmp is RAM disk?
+        return load_npz(tmpfile)
+
+
+def mlflow_log_text(text, name: str, subdir=None):
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = Path(tmpdir) / name
+        path.write_text(text)
+        mlflow_log_artifact(path, subdir)
+
+
+def mlflow_save_checkpoint(model, optimizers, steps):
+    import torch
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = Path(tmpdir) / 'latest.pt'
+        checkpoint = {}
+        checkpoint['epoch'] = steps
+        checkpoint['model_state_dict'] = model.state_dict()
+        for i, opt in enumerate(optimizers):
+            checkpoint[f'optimizer_{i}_state_dict'] = opt.state_dict()
+        torch.save(checkpoint, path)
+        mlflow_log_artifact(path, subdir='checkpoints')
+
+
+def mlflow_load_checkpoint(model, optimizers=tuple(), artifact_path='checkpoints/latest.pt', map_location=None):
+    import mlflow
+    from mlflow.tracking.client import MlflowClient
+    import torch
+    with tempfile.TemporaryDirectory() as tmpdir:
+        client = MlflowClient()
+        run_id = mlflow.active_run().info.run_id  # type: ignore
+        try:
+            path = client.download_artifacts(run_id, artifact_path, tmpdir)
+            print('successfully load,{}'.format(path))
+        except Exception as e:  # TODO: check if it's an error instead of expected "not found"
+            # Checkpoint not found
+            return None
+        try:
+            checkpoint = torch.load(path, map_location=map_location)
+            print('successfully load,{}'.format(path))
+        except:
+            exception('Error reading checkpoint')
+            return None
+        model.load_state_dict(checkpoint['model_state_dict'])
+        for i, opt in enumerate(optimizers):
+            opt.load_state_dict(checkpoint[f'optimizer_{i}_state_dict'])
+        return checkpoint['epoch']
+
+
+def save_npz(data, path):
+    if isinstance(path, str):
+        path = Path(path)
+    with io.BytesIO() as f1:
+        np.savez_compressed(f1, **data)  # Save to memory buffer first ...
+        f1.seek(0)
+        with path.open('wb') as f2:
+            f2.write(f1.read())  # ... then write it to file
+
+
+def load_npz(path, keys=None) -> Dict[str, np.ndarray]:
+    if isinstance(path, str):
+        path = Path(path)
+    with path.open('rb') as f:
+        fdata: Dict[str, np.ndarray] = np.load(f)
+        if keys is None:
+            data = {key: fdata[key] for key in fdata}
+        else:
+            data = {key: fdata[key] for key in keys}
+    return data
+
+
+def param_count(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+
+def discount(x: np.ndarray, gamma: float) -> np.ndarray:
+    import scipy.signal
+    return scipy.signal.lfilter([1], [1, -gamma], x[::-1], axis=0)[::-1]  # type: ignore
+
+
+class Timer:
+
+    def __init__(self, name='timer', verbose=True):
+        self.name = name
+        self.verbose = verbose
+        self.start_time = None
+        # self.times = []
+
+    def __enter__(self):
+        self.start_time = time.time()
+        return self
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        self.dt = time.time() - self.start_time  # type: ignore
+        # self.times.append(dt)
