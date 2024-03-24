@@ -153,3 +153,39 @@ class Preprocessor:
         batch['reward'] = clip_rewards_np(batch['reward'], self.clip_rewards)
 
         # map_coord
+
+        if 'agent_pos' in batch and 'agent_dir' in batch and 'map' in batch:
+            map_size = float(batch['map'].shape[-2])
+            agent_pos = batch['agent_pos'] / map_size * 2 - 1.0
+            agent_dir = batch['agent_dir']
+            batch['map_coord'] = np.concatenate([agent_pos, agent_dir], axis=-1).astype(np.float32)
+
+        # vecobs
+
+        if 'vecobs' in batch:
+            batch['vecobs'] = batch['vecobs'].astype(np.float32)
+        elif 'inventory' in batch and 'equipped' in batch:
+            # inventory, equipped (MineRL) # TODO: customized encoder/decoder
+            batch['vecobs'] = np.concatenate([
+                batch['inventory'].astype(np.float32),
+                batch['equipped'].astype(np.float32)
+            ], axis=-1)
+
+        # probe goal_direction
+
+        if 'targets_vec' in batch:
+            batch['goals_direction'] = batch['targets_vec'].reshape(
+                batch['targets_vec'].shape[:-2] + (-1,)  # (*,G,2) => (*,2G)
+            ).astype(np.float32)
+        if 'target_vec' in batch:
+            batch['goal_direction'] = batch['target_vec'].astype(np.float32)
+
+        # => float16
+
+        if self.amp:
+            for key in ['image', 'action', 'action_next', 'map', 'map_coord', 'vecobs']:
+                if key in batch:
+                    batch[key] = batch[key].astype(np.float16)
+
+        print_once('Preprocess batch (after): ', {k: v.shape + (v.dtype.name,) for k, v in batch.items()})
+        return batch
