@@ -369,3 +369,9 @@ def tensorboard_trace_handler(dir_name: str, worker_name: Optional[str] = None, 
         if use_gzip:
             file_name = file_name + '.gz'
         path = os.path.join(dir_name, file_name)
+        prof.export_chrome_trace(path)
+        # PATCH: upload to mlflow
+        debug(f'Uploading artifact {path} size {Path(path).stat().st_size/1024/1024:.2f} MB')
+        mlflow.log_artifact(path, artifact_path='profiling')
+
+    return handler_fn
