@@ -11,4 +11,8 @@ setuptools.setup(
     author_email='jurgisp@gmail.com',
     description='DreamerV2 in PyTorch',
     url='http://github.com/jurgisp/pydreamer',
-    long_description=pathlib.Path('README.md').read_tex
+    long_description=pathlib.Path('README.md').read_text(),
+    long_description_content_type='text/markdown',
+    install_requires=['torch'],
+    extras_require=extras,
+)
