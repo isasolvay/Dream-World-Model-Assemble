@@ -165,3 +165,124 @@ def prepare_batch_npz(data: Dict[str, Tensor], take_b=999):
 #                              )
 #         assert dream_tensors['action_pred'].shape == obs['action'].shape
 #         assert dream_tensors['image_pred'].shape == obs['image'].shape
+#         return dream_tensors
+
+def test_dream(model, obs, states, action_type):
+    # with torch.no_grad():
+    in_state_dream = map_structure(states, lambda x: x.detach()[0, :, 0])
+
+    # Process fixed_online case separately
+    if action_type == 'fixed_online':
+        features_dream, actions_dream, rewards_dream, terminals_dream = model.dream_cond_action(
+            in_state_dream, obs['action'])
+    elif action_type =='deter_offline':
+        action=torch.zeros_like(obs['action'])
+        action[:,:,2]=1
+        features_dream, actions_dream, rewards_dream, terminals_dream = model.dream_cond_action(
+            in_state_dream, action)
+    else:
+        # Set perturb according to action_type
+        if action_type == 'disturb_online':
+            perturb = 'guassian'
+        elif action_type == 'offline':
+            perturb = 'random_policy'
+        ## 扰动的大小不同
+        elif action_type == 'attack_online_s':
+            perturb = 'attack_s'
+        elif action_type == 'attack_online_m':
+            perturb = 'attack_m'
+        elif action_type == 'attack_online_l':
+            perturb = 'attack_l'
+        else:
+            perturb = 'None'
+
+        # Perform dreaming
+        features_dream, actions_dream, rewards_dream, terminals_dream = model.dream(
+            in_state_dream, obs['action'].shape[0] - 1, perturb=perturb)
+
+    image_dream = model.wm.decoder.image.forward(features_dream)
+
+    # Prepend the real action from the previous step if necessary
+    if action_type in ['adapt_online', 'disturb_online', 'offline', 'attack_online_s','attack_online_m','attack_online_l']:
+        actions_dream = torch.cat([obs['action'][:1], actions_dream])
+
+    dream_tensors = dict(
+        action_pred=actions_dream,
+        reward_pred=rewards_dream.mean,
+        terminal_pred=terminals_dream.mean,
+        image_pred=image_dream,
+    )
+
+    assert dream_tensors['action_pred'].shape == obs['action'].shape
+    assert dream_tensors['image_pred'].shape == obs['image'].shape
+
+    return dream_tensors
+
+
+def process_dream_tensors(model, obs, states, action_type, index, conf):
+    dream_tensors = test_dream(model, obs, states, action_type)
+    dream_tensors_cpu = {key: dream_tensor.cpu() for key, dream_tensor in dream_tensors.items()}
+    dream_tensors_cpu = prepare_batch_npz(dream_tensors_cpu)
+    np.savez(f'wm_results/dream_{action_type}_{conf.env_id}_{index}_data.npz', **dream_tensors_cpu)
+    make_gif_wm(conf.env_id,f'wm_results/dream_{action_type}_{conf.env_id}_{index}_data.npz',index=index,action_type=action_type,dream=True)        
+
+def main(conf):
+    # Add Some new parameter
+
+    artifact_uri=conf.artifact_uri
+    index=conf.index
+    action_type=conf.action_type
+
+    device = torch.device(conf.device)
+
+    # 创建模型
+    model = Dreamer_agent(conf,obs_space,act_space,data_train_stats.stats_steps)
+    model = Dreamer_agent(conf)
+    model.to(device)
+    print(device)
+    # 加载模型参数
+    checkpoint = torch.load(f'{artifact_uri}/checkpoints/latest.pt',map_location=torch.device('cpu'))
+    model.load_state_dict(checkpoint['model_state_dict'])
+
+    # # 打印模型参数
+    # print("Model Parameters:")
+    # for name, param in model.named_parameters():
+    #     print(f"{name}: {param.shape}")
+
+    # # # 打印模型结构
+    # print("\nModel Architecture:")
+    # print(model)
+
+    ## data reader
+    input_dirs = [
+                f'{artifact_uri}/episodes/{i}'
+                for i in range(max(conf.generator_workers_train, conf.generator_workers))
+            ]
+    # print(input_dirs)
+    data = DataSequential(MlflowEpisodeRepository(input_dirs),
+                            conf.batch_length,
+                            conf.batch_size,
+                            skip_first=True,
+                            reload_interval=120 ,
+                            buffer_size=conf.buffer_size ,
+                            reset_interval=conf.reset_interval,
+                            allow_mid_reset=conf.allow_mid_reset)
+    # data=data.to(device)
+    preprocess = Preprocessor(image_categorical=conf.image_channels if conf.image_categorical else None,
+                                image_key=conf.image_key,
+                                map_categorical=conf.map_channels if conf.map_categorical else None,
+                                map_key=conf.map_key,
+                                action_dim=conf.action_dim,
+                                clip_rewards=conf.clip_rewards,
+                                amp=conf.amp and device.type == 'cuda')
+
+    data_iter = iter(DataLoader(WorkerInfoPreprocess(preprocess(data)),
+                                    batch_size=None,
+                                    num_workers=conf.data_workers,
+                                    # num_workers=1,
+                                    prefetch_factor=20 if conf.data_workers else 2,  # GCS download has to be shorter than this many batches (e.g. 1sec < 20*300ms)
+                                    pin_memory=True))
+    # data_iter=data_iter.to(device)
+    states={}
+    batch, wid = next(data_iter)
+    obs: Dict[str, Tensor] = map_structure(batch, lambda x: x.to(device))
