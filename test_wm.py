@@ -286,3 +286,34 @@ def main(conf):
     states={}
     batch, wid = next(data_iter)
     obs: Dict[str, Tensor] = map_structure(batch, lambda x: x.to(device))
+    obs_cpu = {key: tensor.cpu() for key, tensor in obs.items()}
+    obs_cpu=prepare_batch_npz(obs_cpu)
+    np.savez(f'wm_results/origin_{conf.env_id}_{index}_data.npz', **obs_cpu)
+    make_gif_wm(conf.env_id,f'wm_results/origin_{conf.env_id}_{index}_data.npz',index=index,action_type=action_type,dream=False)
+
+
+    # Get the starting states(h,z)
+    in_state = states.get(wid)
+    if in_state is None:
+        in_state = model.init_state(conf.batch_size * conf.iwae_samples)
+    loss, features, states, out_state, metrics, tensors = \
+                model.wm.training_step(obs, in_state, forward_only=True)
+   
+
+    # action_types = ['fixed_online', 'adapt_online', 'disturb_online','attack_online','offline','deter_offline','all']
+    action_types = ['attack_online_s','attack_online_m','attack_online_l','deter_offline','fixed_online', 'adapt_online', 'disturb_online','offline','all']
+    # action_types=['adapt_online','attack_online_s','attack_online_m','attack_online_l','all']
+    
+    if action_type in action_types[:len(action_types)-1]: # if action_type is 'fixed_online' or 'adapt_online'
+        process_dream_tensors(model, obs, states, action_type, index, conf)
+    elif action_type == 'all': 
+        for act_type in action_types[:len(action_types)-1]: # act_type will be 'fixed_online' and then 'adapt_online'
+            
+            process_dream_tensors(model, obs, states, act_type, index, conf)
+
+
+
+
+if __name__ == "__main__":
+    conf = make_args()
+    main(conf)
