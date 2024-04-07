@@ -398,3 +398,126 @@ def evaluate(prefix: str,
                     for key, logprobs in tensors_im.items():
                         if key.startswith('logprob_'):  # logprob_image, logprob_reward, ...
                             # Many logprobs will be nans - that's fine. Just take mean of those tahat exist
+                            lps = logprobs[:5] * mask / mask  # set to nan where ~mask
+                            lp = nanmean(lps).item()
+                            if not np.isnan(lp):
+                                metrics_eval[f'{key}_open'].append(lp)  # logprob_image_open, ...
+
+            # Closed loop & loss
+
+            with autocast(enabled=amp):
+                if state is None or not keep_state:
+                    state = model.init_state(B * eval_samples)
+
+                _, state, loss_metrics, tensors, _ = \
+                    model.training_step(obs,
+                                        state,
+                                        iwae_samples=eval_samples,
+                                        imag_horizon=conf.imag_horizon,
+                                        do_image_pred=True)
+
+                for k, v in loss_metrics.items():
+                    if not np.isnan(v.item()):
+                        metrics_eval[k].append(v.item())
+
+            # Log one episode batch
+
+            if do_output_tensors:
+                npz_datas.append(prepare_batch_npz(dict(**batch, **tensors), take_b=save_size))
+            if n_finished_episodes[0] > 0:
+                # log predictions until first episode is finished
+                do_output_tensors = False
+
+    metrics_eval = {f'{prefix}/{k}': np.array(v).mean() for k, v in metrics_eval.items()}
+    mlflow_log_metrics(metrics_eval, step=steps)
+
+    if len(npz_datas) > 0:
+        npz_data = {k: np.concatenate([d[k] for d in npz_datas], 1) for k in npz_datas[0]}
+        print_once(f'Saving batch d2_wm_closed_{prefix}: ', {k: tuple(v.shape) for k, v in npz_data.items()})
+        r = npz_data['reward'][0].sum().item()
+        # tools.mlflow_log_npz(npz_data, f'{steps:07}_r{r:.0f}.npz', subdir=f'd2_wm_closed_{prefix}', verbose=True)
+
+    info(f'Evaluation ({prefix}): done in {(time.time()-start_time):.0f} sec, recorded {n_finished_episodes.sum()} episodes')
+
+
+def log_batch_npz(batch: Dict[str, Tensor],
+                  tensors: Dict[str, Tensor],
+                  filename: str,
+                  subdir: str):
+
+    data = dict(**batch, **tensors)
+    print_once(f'Saving batch {subdir} (input): ', 
+           {k: tuple(v.shape) if hasattr(v, 'shape') else str(type(v)) for k, v in data.items()})
+    data = prepare_batch_npz(data)
+    # print_once(f'Saving batch {subdir} (proc.): ', {k: tuple(v.shape) for k, v in data.items()})
+    print_once(f'Saving batch {subdir} (proc.): ', 
+           {k: tuple(v.shape) if hasattr(v, 'shape') else str(type(v)) for k, v in data.items()})
+    tools.mlflow_log_npz(data, filename, subdir, verbose=True)
+   
+
+
+
+def prepare_batch_npz(data: Dict[str, Tensor], take_b=999):
+
+    def unpreprocess(key: str, val: Tensor) -> np.ndarray:
+        # if take_b < val.shape[1]:
+        #     val = val[:, :take_b]
+        try:
+            # print(key)
+    # 尝试访问 shape 属性
+            if take_b < val.shape[1]:
+                val = val[:, :take_b]
+        except AttributeError:
+            print(f"Object of type {type(val)} doesn't have a 'shape' attribute.",val,key)
+            # 可以选择在这里抛出错误，或者让程序继续执行
+            raise
+        if val.requires_grad:
+            print(key)
+        x = val.cpu().numpy()  # (T,B,*)
+        if x.dtype in [np.float16, np.float64]:
+            x = x.astype(np.float32)
+
+        if len(x.shape) == 2:  # Scalar
+            pass
+
+        elif len(x.shape) == 3:  # 1D vector
+            pass
+
+        elif len(x.shape) == 4:  # 2D tensor
+            pass
+
+        elif len(x.shape) == 5:  # 3D tensor - image
+            assert x.dtype == np.float32 and (key.startswith('image') or key.startswith('map')), \
+                f'Unexpected 3D tensor: {key}: {x.shape}, {x.dtype}'
+
+            if x.shape[-1] == x.shape[-2]:  # (T,B,C,W,W)
+                x = x.transpose(0, 1, 3, 4, 2)  # => (T,B,W,W,C)
+            assert x.shape[-2] == x.shape[-3], 'Assuming rectangular images, otherwise need to improve logic'
+
+            if x.shape[-1] in [1, 3]:
+                # RGB or grayscale
+                x = ((x + 0.5) * 255.0).clip(0, 255).astype('uint8')
+            elif np.allclose(x.sum(axis=-1), 1.0) and np.allclose(x.max(axis=-1), 1.0):
+                # One-hot
+                x = x.argmax(axis=-1)
+            else:
+                # Categorical logits
+                assert key in ['map_rec', 'image_rec', 'image_pred'], \
+                    f'Unexpected 3D categorical logits: {key}: {x.shape}'
+                x = scipy.special.softmax(x, axis=-1)
+
+        x = x.swapaxes(0, 1)  # type: ignore  # (T,B,*) => (B,T,*)
+        return x
+
+    return {k: unpreprocess(k, v) for k, v in data.items()}
+
+
+def get_profiler(conf):
+    if conf.enable_profiler:
+        return torch.profiler.profile(
+            activities=[ProfilerActivity.CUDA],
+            schedule=torch.profiler.schedule(wait=10, warmup=10, active=1, repeat=3),
+            on_trace_ready=tools.tensorboard_trace_handler('./log'),
+        )
+    else:
+        return NoProfiler()
