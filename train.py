@@ -272,3 +272,129 @@ def run(conf,space):
                         metrics['_timestamp'] = datetime.now().timestamp()
 
                         t = time.time()
+                        fps = (steps - last_steps) / (t - last_time)
+                        metrics['train/fps'] = fps
+                        last_time, last_steps = t, steps
+
+                        info(f"[{steps:06}]"
+                             f"  loss_model: {metrics.get('train/loss_model', 0):.3f}"
+                             f"  loss_critic: {metrics.get('train/loss_critic', 0):.3f}"
+                              f"  policy_value: {metrics.get('train/loss_actor',0):.3f}"
+                             f"  policy_value: {metrics.get('train/policy_value',0):.3f}"
+                             f"  policy_entropy: {metrics.get('train/policy_entropy',0):.3f}"
+                             f"  fps: {metrics['train/fps']:.3f}"
+                             )
+                        if steps > conf.log_interval:  # Skip the first batch, because the losses are very high and mess up y axis
+                            mlflow_log_metrics(metrics, step=steps)
+                        metrics = defaultdict(list)
+                        metrics_max = defaultdict(list)
+
+                    # Save model
+
+                    if steps % conf.save_interval == 0:
+                        tools.mlflow_save_checkpoint(model, optimizers, steps)
+                        info(f'Saved model checkpoint {steps}')
+
+                    # Stop
+
+                    if steps >= conf.n_steps:
+                        info(f'Finished {conf.n_steps} grad steps.')
+                        return
+
+                # Evaluate
+
+                with timer('eval'):
+                    if conf.eval_interval and steps % conf.eval_interval == 0:
+                        try:
+                            # Test = same settings as train
+                            data_test = DataSequential(MlflowEpisodeRepository(test_dirs), conf.batch_length, conf.test_batch_size, skip_first=False, reset_interval=conf.reset_interval)
+                            test_iter = iter(DataLoader(preprocess(data_test), batch_size=None))
+                            evaluate('test', steps, model, test_iter, device, conf.test_batches, conf.iwae_samples, conf.keep_state, conf.test_save_size, conf)
+
+                            # Eval = no state reset, multisampling
+                            data_eval = DataSequential(MlflowEpisodeRepository(eval_dirs), conf.batch_length, conf.eval_batch_size, skip_first=False)
+                            eval_iter = iter(DataLoader(preprocess(data_eval), batch_size=None))
+                            evaluate('eval', steps, model, eval_iter, device, conf.eval_batches, conf.eval_samples, True, conf.eval_save_size, conf)
+
+                        except Exception as e:
+                            # This catch is useful if there is no eval data generated yet
+                            warning(f'Evaluation failed: {repr(e)}')
+
+            for k, v in timers.items():
+                metrics[f'timer_{k}'].append(v.dt_ms)
+
+            if conf.verbose:
+                info(f"[{steps:06}] timers"
+                     f"  TOTAL: {timer('total').dt_ms:>4}"
+                     f"  data: {timer('data').dt_ms:>4}"
+                     f"  forward: {timer('forward').dt_ms:>4}"
+                     f"  backward: {timer('backward').dt_ms:>4}"
+                     f"  gradstep: {timer('gradstep').dt_ms:>4}"
+                     f"  eval: {timer('eval').dt_ms:>4}"
+                     f"  other: {timer('other').dt_ms:>4}"
+                     )
+
+
+def evaluate(prefix: str,
+             steps: int,
+             model: Dreamer_agent,
+             data_iterator: Iterator,
+             device,
+             eval_batches: int,
+             eval_samples: int,
+             keep_state: bool,
+             save_size: int,
+             conf):
+
+    start_time = time.time()
+    metrics_eval = defaultdict(list)
+    state = None
+    tensors = None
+    npz_datas = []
+    n_finished_episodes = np.zeros(1)
+    do_output_tensors = True
+
+    for i_batch in range(eval_batches):
+        with torch.no_grad():
+
+            batch = next(data_iterator)
+            obs: Dict[str, Tensor] = map_structure(batch, lambda x: x.to(device))  # type: ignore
+            T, B = obs['action'].shape[:2]
+
+            if i_batch == 0:
+                info(f'Evaluation ({prefix}): batches: {eval_batches},  size(T,B,I): ({T},{B},{eval_samples})')
+
+            reset_episodes = obs['reset'].any(dim=0)  # (B,)
+            n_reset_episodes = reset_episodes.sum().item()
+            n_continued_episodes = (~reset_episodes).sum().item()
+            if i_batch == 0:
+                n_finished_episodes = np.zeros(B)
+            else:
+                n_finished_episodes += reset_episodes.cpu().numpy()
+
+            # Log _last predictions from the last batch of previous episode # TODO: make generic for goal probes
+
+            if n_reset_episodes > 0 and tensors is not None and 'loss_map' in tensors:
+                logprob_map_last = (tensors['loss_map'].mean(dim=0) * reset_episodes).sum() / reset_episodes.sum()
+                metrics_eval['logprob_map_last'].append(logprob_map_last.item())
+
+            # Open loop & unseen logprob
+
+            if n_continued_episodes > 0:
+                with autocast(enabled=amp):
+                    _, _, _, tensors_im, _ = \
+                        model.training_step(obs,  # observation will be ignored in forward pass because of imagine=True
+                                            state,
+                                            iwae_samples=eval_samples,
+                                            imag_horizon=conf.imag_horizon,
+                                            do_open_loop=True,
+                                            do_image_pred=True)
+
+                    if np.random.rand() < 0.10:  # Save a small sample of batches
+                        r = obs['reward'].sum().item()
+                        # log_batch_npz(batch, tensors_im, f'{steps:07}_{i_batch}_r{r:.0f}.npz', subdir=f'd2_wm_open_{prefix}')
+
+                    mask = (~reset_episodes).float()
+                    for key, logprobs in tensors_im.items():
+                        if key.startswith('logprob_'):  # logprob_image, logprob_reward, ...
+                            # Many logprobs will be nans - that's fine. Just take mean of those tahat exist
