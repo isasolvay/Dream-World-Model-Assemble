@@ -12,4 +12,8 @@ def parse_args():
     return parser.parse_args()
 
 
-def plo
+def plot_results(df_list, env='atari_pong'):
+    import numpy as np
+    import holoviews as hv
+    """
+    Given a list of dataframes, plot results on 
