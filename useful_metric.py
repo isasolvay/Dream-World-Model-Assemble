@@ -16,4 +16,8 @@ def plot_results(df_list, env='atari_pong'):
     import numpy as np
     import holoviews as hv
     """
-    Given a list of dataframes, plot results on 
+    Given a list of dataframes, plot results on given environment.
+    """
+    df = pd.concat(df_list)
+    # aggregate runs
+    df = df.groupby(['method', 'env', 'env_steps'])[
