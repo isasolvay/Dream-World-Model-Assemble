@@ -20,4 +20,6 @@ def plot_results(df_list, env='atari_pong'):
     """
     df = pd.concat(df_list)
     # aggregate runs
-    df = df.groupby(['method', 'env', 'env_steps'])[
+    df = df.groupby(['method', 'env', 'env_steps'])['return'].agg(['mean', 'std', 'count']).reset_index()
+    df['std'] = df['std'].fillna(0)
+    df = df.rename(columns={'mean': 'return
