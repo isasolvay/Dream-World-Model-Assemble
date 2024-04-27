@@ -42,4 +42,6 @@ def plot_results(df_list, env='atari_pong'):
     hv.save(fig, f'figures/{env}.png', dpi=144)
     return fig
 
-def load_data_from_c
+def load_data_from_csv(csv_files, method_name, env_steps_interval=1e6):
+    """
+    Load data from csv files, append a method name column, discretize steps and
