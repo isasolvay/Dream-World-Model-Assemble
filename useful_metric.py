@@ -22,4 +22,9 @@ def plot_results(df_list, env='atari_pong'):
     # aggregate runs
     df = df.groupby(['method', 'env', 'env_steps'])['return'].agg(['mean', 'std', 'count']).reset_index()
     df['std'] = df['std'].fillna(0)
-    df = df.rename(columns={'mean': 'return
+    df = df.rename(columns={'mean': 'return', 'std': 'return_std'})
+    data = df
+
+    df_env = data[data['env'] == env]
+    fig = hv.Overlay([
+        hv.Curve(df_meth
