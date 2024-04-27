@@ -32,4 +32,7 @@ def plot_results(df_list, env='atari_pong'):
             ylim=(-22, 22),
         )
         * 
-     
+        hv.Spread(df_method, 'env_steps', ['return', 'return_std']).opts(
+            alpha=0.2,
+        )
+        for method, d
