@@ -27,4 +27,9 @@ def plot_results(df_list, env='atari_pong'):
 
     df_env = data[data['env'] == env]
     fig = hv.Overlay([
-        hv.Curve(df_meth
+        hv.Curve(df_method, 'env_steps', 'return', group=env, label=method).opts(
+            xlim=(0, 20e6),
+            ylim=(-22, 22),
+        )
+        * 
+     
