@@ -35,4 +35,11 @@ def plot_results(df_list, env='atari_pong'):
         hv.Spread(df_method, 'env_steps', ['return', 'return_std']).opts(
             alpha=0.2,
         )
-        for method, d
+        for method, df_method
+        in df_env.groupby('method')
+    ]).opts(title=env)
+
+    hv.save(fig, f'figures/{env}.png', dpi=144)
+    return fig
+
+def load_data_from_c
