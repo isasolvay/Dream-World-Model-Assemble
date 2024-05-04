@@ -50,4 +50,11 @@ def load_data_from_csv(csv_files, method_name, env_steps_interval=1e6):
     df['method'] = method_name
     # discretize to 1e6 steps
     df['env_steps'] = (df['env_steps'] / env_steps_interval).apply(np.ceil) * env_steps_interval  
-    df = df.groupby(['env', 'method'
+    df = df.groupby(['env', 'method', 'run', 'env_steps'])[['return']].mean().reset_index()
+    return df
+
+def main():
+    # 解析命令行参数
+    args = parse_args()
+
+    fo
