@@ -44,4 +44,9 @@ def plot_results(df_list, env='atari_pong'):
 
 def load_data_from_csv(csv_files, method_name, env_steps_interval=1e6):
     """
-    Load data from csv files, append a method name column, discretize steps and
+    Load data from csv files, append a method name column, discretize steps and group by certain fields.
+    """
+    df = pd.concat([pd.read_csv(f) for f in csv_files])
+    df['method'] = method_name
+    # discretize to 1e6 steps
+    df[
