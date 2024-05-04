@@ -49,4 +49,5 @@ def load_data_from_csv(csv_files, method_name, env_steps_interval=1e6):
     df = pd.concat([pd.read_csv(f) for f in csv_files])
     df['method'] = method_name
     # discretize to 1e6 steps
-    df[
+    df['env_steps'] = (df['env_steps'] / env_steps_interval).apply(np.ceil) * env_steps_interval  
+    df = df.groupby(['env', 'method'
