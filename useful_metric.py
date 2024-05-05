@@ -57,4 +57,7 @@ def main():
     # 解析命令行参数
     args = parse_args()
 
-    fo
+    folder_path = f'/home/chenghan/pydreamer/mlruns/0/{args.uri}/metrics'
+    print(os.listdir(folder_path))
+
+    columns = ['steps', 'return', 'env_st
