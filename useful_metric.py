@@ -60,4 +60,9 @@ def main():
     folder_path = f'/home/chenghan/pydreamer/mlruns/0/{args.uri}/metrics'
     print(os.listdir(folder_path))
 
-    columns = ['steps', 'return', 'env_st
+    columns = ['steps', 'return', 'env_steps']
+    merged_data = pd.DataFrame()
+
+    for column in columns:
+        file = f'{folder_path}/agent/{column}'
+        data 
