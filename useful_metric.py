@@ -65,4 +65,8 @@ def main():
 
     for column in columns:
         file = f'{folder_path}/agent/{column}'
-        data 
+        data = pd.read_csv(file,delimiter=' ')
+        merged_data[column] = data.iloc[:, 1]
+
+    file=f'{folder_path}/_loss'
+    data=pd.read_csv(file,delimiter=
