@@ -69,4 +69,10 @@ def main():
         merged_data[column] = data.iloc[:, 1]
 
     file=f'{folder_path}/_loss'
-    data=pd.read_csv(file,delimiter=
+    data=pd.read_csv(file,delimiter=' ')
+    merged_data['loss'] = data.iloc[:, 1]
+
+    merged_data['env'] = args.env
+    merged_data['run'] = args.index
+
+    name=merged_data['env'][0
