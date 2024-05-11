@@ -78,4 +78,9 @@ def main():
     name=merged_data['env'][0]
     index=merged_data['run'][0]
     folder_path = f'/home/chenghan/pydreamer/results/figures/{name}'
-    os.makedirs(folder_p
+    os.makedirs(folder_path, exist_ok=True)
+
+    if args.tidy:
+        merged_data.to_csv(f'{folder_path}/{index}_tidy.csv', index=False)
+    else:
+        merged_data.to_csv(f'
