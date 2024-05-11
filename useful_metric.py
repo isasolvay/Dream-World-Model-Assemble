@@ -75,4 +75,7 @@ def main():
     merged_data['env'] = args.env
     merged_data['run'] = args.index
 
-    name=merged_data['env'][0
+    name=merged_data['env'][0]
+    index=merged_data['run'][0]
+    folder_path = f'/home/chenghan/pydreamer/results/figures/{name}'
+    os.makedirs(folder_p
