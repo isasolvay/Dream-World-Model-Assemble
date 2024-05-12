@@ -83,4 +83,8 @@ def main():
     if args.tidy:
         merged_data.to_csv(f'{folder_path}/{index}_tidy.csv', index=False)
     else:
-        merged_data.to_csv(f'
+        merged_data.to_csv(f'{folder_path}/{index}_def.csv', index=False)
+
+# 如果当前脚本被当作主程序运行，那么执行 main() 函数
+if __name__ == '__main__':
+    main()
