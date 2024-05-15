@@ -4,4 +4,8 @@ An ensemble of various world models, majorly featuring Dreamer v2 and v3. Reimpl
 **Please note:** This is a research project, instability and breaking changes should be expected!
 
 ## Quick Setup
-To utilize dreamer V2 for Atari, execute the following 
+To utilize dreamer V2 for Atari, execute the following command:
+
+```python launch.py --config defaults_wis_v3 atari atari_pong dreamer_v2```
+
+To utilize dreamer V3, execute the followi
