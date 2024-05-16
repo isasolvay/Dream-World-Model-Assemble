@@ -8,4 +8,9 @@ To utilize dreamer V2 for Atari, execute the following command:
 
 ```python launch.py --config defaults_wis_v3 atari atari_pong dreamer_v2```
 
-To utilize dreamer V3, execute the followi
+To utilize dreamer V3, execute the following command:
+
+```python launch.py --config defaults_wis_v3 atari atari_pong dreamer_v3```
+
+## Mlflow Tracking
+This project relies conside
