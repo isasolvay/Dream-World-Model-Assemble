@@ -13,4 +13,4 @@ To utilize dreamer V3, execute the following command:
 ```python launch.py --config defaults_wis_v3 atari atari_pong dreamer_v3```
 
 ## Mlflow Tracking
-This project relies conside
+This project relies considerably on Mlflow tracking to log metrics, images, store model checkpoints, and even replay buffer. It doesn't requires an installed Mlflow tracking server. By de
