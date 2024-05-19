@@ -15,4 +15,4 @@ To utilize dreamer V3, execute the following command:
 ## Mlflow Tracking
 This project relies considerably on Mlflow tracking to log metrics, images, store model checkpoints, and even replay buffer. It doesn't requires an installed Mlflow tracking server. By default, mlflow is just a pip package, storing all metrics and files locally under `./mlruns` directory.
 
-However, if you're run
+However, if you're running experiments on the cloud, it would be convenient to set up a persistent Mlflow tracking server. In this case, you just need to set the `M
