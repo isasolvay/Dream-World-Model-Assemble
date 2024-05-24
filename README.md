@@ -17,4 +17,4 @@ This project relies considerably on Mlflow tracking to log metrics, images, stor
 
 However, if you're running experiments on the cloud, it would be convenient to set up a persistent Mlflow tracking server. In this case, you just need to set the `MLFLOW_TRACKING_URI` env variable, and all the metrics will be redirected to the server instead of the local directory.
 
-Please be aware that the replay buffer is just a directory with mlflow artifacts in `*.npz` format. Hence, if you set up an S3 or GCS mlflow artifact store, the replay buffer will actually be stored on the cloud and replayed from there! It makes it possible to persist data a
+Please be aware that the replay buffer is just a directory with mlflow artifacts in `*.npz` format. Hence, if you set up an S3 or GCS mlflow artifact store, the replay buffer will actually be stored on the cloud and replayed from there! It makes it possible to persist data across container restarts, but beware to store data in the same cloud region as the training containers to evade data transfer expenses.
